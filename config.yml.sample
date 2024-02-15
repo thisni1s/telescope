@@ -1,4 +1,6 @@
-apiToken: apitoken
-sshKeys: [1337, 4911]
-diameter: 3
+apiToken: tokeeeeen
+sshKeys: [1337, 4711]
+diameter: 1
 startupScript: startup.sh
+storageLocation : https://yourwebdavurl/public.php/webdav
+storageToken: tokeeeen

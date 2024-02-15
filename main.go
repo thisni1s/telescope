@@ -17,10 +17,12 @@ import (
 )
 
 type Config struct {
-	ApiToken      string `yaml:"apiToken"`
-	SSHKeys       []int  `yaml:"sshKeys"`
-	Diameter      int    `yaml:"diameter"`      // Diameter is the telescope size
-	StartUpScript string `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
+	ApiToken        string `yaml:"apiToken"`
+	SSHKeys         []int  `yaml:"sshKeys"`
+	Diameter        int    `yaml:"diameter"`      // Diameter is the telescope size
+	StartUpScript   string `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
+	StorageLocation string `yaml:"storageLocation"`
+	StorageToken    string `yaml:"storageToken"`
 }
 
 var cfg Config
@@ -49,7 +51,7 @@ func main() {
 		didTransactions = true
 		var toCreate int = (cfg.Diameter - len(list))
 		for i := 0; i < toCreate; i++ {
-            num := findLowestNum(&list)
+			num := findLowestNum(&list)
 			drop, err := CreateDroplet(ctx, client, num)
 			if err != nil {
 				log.Println("Could not create droplet")
@@ -86,11 +88,11 @@ func main() {
 
 	fmt.Printf("The telescope consists of %d nodes \n", len(list))
 	for _, droplet := range list {
-        ip, _ := droplet.PublicIPv4() 
-        if ip == "" {
-            ip = "not yet Available"
-        }
-        fmt.Printf("  [%d] %s Created: %s IP: %s \n", droplet.ID, droplet.Name, getTimefromStr(droplet.Created).Format("02.01.2006 15:04:05"), ip)
+		ip, _ := droplet.PublicIPv4()
+		if ip == "" {
+			ip = "not yet Available"
+		}
+		fmt.Printf("  [%d] %s Created: %s IP: %s \n", droplet.ID, droplet.Name, getTimefromStr(droplet.Created).Format("02.01.2006 15:04:05"), ip)
 		//a, _ := json.Marshal(droplet)
 		//fmt.Println(string(a))
 
@@ -106,26 +108,26 @@ func getTimefromStr(str string) time.Time {
 	return t
 }
 
-func findLowestNum(list *[]godo.Droplet) (int) {
-    var allNums []int
-    for _, drop := range *list {
-        num, err := strconv.Atoi(strings.Split(drop.Name, "-")[1])
-        if err != nil {
-            num = 9999
-        }
-        allNums = append(allNums, num)
-    }
-    sort.Ints(allNums)
-        // Überprüfe jede Zahl in der sortierten Liste
-    // und finde die kleinste freie Zahl
-    lowestFree := 1
-    for _, num := range allNums {
-        if num == lowestFree {
-            lowestFree++
-        }
-    }
-    return lowestFree
-    
+func findLowestNum(list *[]godo.Droplet) int {
+	var allNums []int
+	for _, drop := range *list {
+		num, err := strconv.Atoi(strings.Split(drop.Name, "-")[1])
+		if err != nil {
+			num = 9999
+		}
+		allNums = append(allNums, num)
+	}
+	sort.Ints(allNums)
+	// Überprüfe jede Zahl in der sortierten Liste
+	// und finde die kleinste freie Zahl
+	lowestFree := 1
+	for _, num := range allNums {
+		if num == lowestFree {
+			lowestFree++
+		}
+	}
+	return lowestFree
+
 }
 
 func CreateDroplet(ctx context.Context, client *godo.Client, num int) (*godo.Droplet, error) {
@@ -140,6 +142,10 @@ func CreateDroplet(ctx context.Context, client *godo.Client, num int) (*godo.Dro
 		log.Fatal(err)
 	}
 
+    scr := fmt.Sprintf(`%s
+(crontab -l ; echo "0 * * * * sh /root/upload.sh %s %s") | crontab -
+reboot`, string(script), cfg.StorageLocation, cfg.StorageToken)
+
 	createRequest := &godo.DropletCreateRequest{
 		Name:   fmt.Sprintf("telescope-%d", num),
 		Region: "fra1",
@@ -149,7 +155,7 @@ func CreateDroplet(ctx context.Context, client *godo.Client, num int) (*godo.Dro
 		},
 		Tags:     []string{"telescope"},
 		SSHKeys:  keys,
-		UserData: string(script),
+		UserData: scr,
 	}
 
 	newDroplet, _, err := client.Droplets.Create(ctx, createRequest)
