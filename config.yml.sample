@@ -1,0 +1,4 @@
+apiToken: apitoken
+sshKeys: [1337, 4911]
+diameter: 3
+startupScript: startup.sh
