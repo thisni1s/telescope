@@ -12,6 +12,9 @@ wget https://raw.githubusercontent.com/thisni1s/telescope/main/upload.sh -P /roo
 chmod 644 /etc/logrotate.d/tcpdumpd
 chown root:root /etc/logrotate.d/tcpdumpd
 systemctl enable tcpdumpd
-systemctl start tcpdumpd
+#systemctl start tcpdumpd
+ip=$( dig +short myip.opendns.com @resolver1.opendns.com | sed -r 's/\./-/g' )
+
+
 #(crontab -l ; echo "0 * * * * sh /root/upload.sh") | crontab -
 #reboot

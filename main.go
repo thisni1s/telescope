@@ -144,7 +144,9 @@ func CreateDroplet(ctx context.Context, client *godo.Client, num int) (*godo.Dro
 
     scr := fmt.Sprintf(`%s
 (crontab -l ; echo "0 * * * * sh /root/upload.sh %s %s") | crontab -
-reboot`, string(script), cfg.StorageLocation, cfg.StorageToken)
+curl -u "%s:" -X MKCOL "%s/$ip"
+systemctl start tcpdumpd
+reboot`, string(script), cfg.StorageLocation, cfg.StorageToken, cfg.StorageToken, cfg.StorageLocation)
 
 	createRequest := &godo.DropletCreateRequest{
 		Name:   fmt.Sprintf("telescope-%d", num),
