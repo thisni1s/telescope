@@ -1,0 +1,14 @@
+[Unit]
+After=network.target
+ 
+[Service]
+Restart=always
+RestartSec=30
+Environment="TCPDUMP_FORMAT=%%Y-%%m-%%d__%%H-%%M"
+ExecStartPre=/bin/mkdir -p /var/log/tcpdumpd/
+# zusatzoption "-s 65535" für max packet länge, default ist 262144
+ExecStart=/usr/bin/tcpdump -i eth0 -G 600 -s 65535 -w '/var/log/tcpdumpd/tcpdump_${TCPDUMP_FORMAT}.pcap'
+ExecStop=/bin/kill -s TERM $MAINPID
+ 
+[Install]
+WantedBy=multi-user.target

@@ -21,8 +21,9 @@ for file in *.pcap; do
     # Check if the file is a regular file
     if [ -f "$file" ]; then
         echo "Processing file: $file"
-        target=$link/$ip-$file
+        target=$link/$ip/$file
         curl -k -T $file -u "$2:" -H 'X-Requested-With: XMLHttpRequest' "$target" 
+        rm $file
     fi
 done
 
