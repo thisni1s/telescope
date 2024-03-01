@@ -1,6 +1,6 @@
 module github.com/thisni1s/telescope
 
-go 1.21.6
+go 1.22
 
 require (
 	github.com/digitalocean/godo v1.109.0 // indirect

@@ -17,12 +17,13 @@ import (
 )
 
 type Config struct {
-	ApiToken        string `yaml:"apiToken"`
-	SSHKeys         []int  `yaml:"sshKeys"`
-	Diameter        int    `yaml:"diameter"`      // Diameter is the telescope size
-	StartUpScript   string `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
-	StorageLocation string `yaml:"storageLocation"`
-	StorageToken    string `yaml:"storageToken"`
+	ApiToken        string   `yaml:"apiToken"`
+	SSHKeys         []int    `yaml:"sshKeys"`
+	Diameter        int      `yaml:"diameter"` // Diameter is the telescope size
+	Regions         []string `yaml:"regions"`
+	StartUpScript   string   `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
+	StorageLocation string   `yaml:"storageLocation"`
+	StorageToken    string   `yaml:"storageToken"`
 }
 
 var cfg Config
@@ -45,16 +46,21 @@ func main() {
 		log.Println("Could not get Droplet list")
 		log.Fatal(err)
 	}
+	currRegs := calcCurrRegions(&list)
+	desiredRegs := calcRegions(cfg.Regions, cfg.Diameter)
 	didTransactions := false
 	if len(list) < cfg.Diameter {
 		fmt.Println("To few nodes for requested diameter. Creating new nodes!")
 		didTransactions = true
 		var toCreate int = (cfg.Diameter - len(list))
+		regionsStack := calcRegionStack(currRegs, desiredRegs, toCreate)
+
 		for i := 0; i < toCreate; i++ {
 			num := findLowestNum(&list)
-			drop, err := CreateDroplet(ctx, client, num)
+			reg := popSlice(&regionsStack)
+			drop, err := CreateDroplet(ctx, client, num, reg)
 			if err != nil {
-				log.Println("Could not create droplet")
+				log.Printf("Could not create droplet in region %s \n", reg)
 				log.Fatal(err)
 			}
 			list = append(list, *drop)
@@ -92,12 +98,84 @@ func main() {
 		if ip == "" {
 			ip = "not yet Available"
 		}
-		fmt.Printf("  [%d] %s Created: %s IP: %s \n", droplet.ID, droplet.Name, getTimefromStr(droplet.Created).Format("02.01.2006 15:04:05"), ip)
+		fmt.Printf("  [%d] %s [%s] Created: %s IP: %s \n", droplet.ID, droplet.Name, droplet.Region.Name, getTimefromStr(droplet.Created).Format("02.01.2006 15:04:05"), ip)
 		//a, _ := json.Marshal(droplet)
 		//fmt.Println(string(a))
 
 	}
 
+}
+
+func popSlice(arr *[]string) string {
+	if len(*arr) == 0 {
+		return ""
+	}
+	lastIndex := len(*arr) - 1
+	popped := (*arr)[lastIndex]
+	*arr = (*arr)[:lastIndex]
+	return popped
+}
+
+func calcRegionStack(currRegs map[string]int, ideal map[string]int, toCreate int) []string {
+	result := make(map[string]int)
+	var resStack []string
+
+	for key, value := range ideal {
+		result[key] = value - currRegs[key]
+	}
+
+	// Add keys from currRegs that are not in ideal
+	for key, value := range currRegs {
+		if _, ok := result[key]; !ok {
+			result[key] = -value
+		}
+	}
+
+	for key, val := range result {
+		for _ = range val {
+			resStack = append(resStack, key)
+		}
+	}
+
+	return resStack
+}
+
+func calcCurrRegions(list *[]godo.Droplet) map[string]int {
+	result := make(map[string]int)
+	for _, drop := range *list {
+		if _, ok := result[drop.Region.Slug]; !ok {
+			result[drop.Region.Slug]++
+		} else {
+			result[drop.Region.Slug] = 1
+		}
+	}
+	return result
+}
+
+func calcRegions(regions []string, diameter int) map[string]int {
+	result := make(map[string]int)
+
+	if len(regions) == 0 {
+		return result
+	}
+
+	// Calculate the quotient
+	quotient := diameter / len(regions)
+
+	// Calculate the remainder
+	remainder := diameter % len(regions)
+
+	// Assign the quotient to each string
+	for _, str := range regions {
+		result[str] = quotient
+	}
+
+	// Distribute the remainder
+	for i := 0; i < remainder; i++ {
+		result[regions[i]]++
+	}
+
+	return result
 }
 
 func getTimefromStr(str string) time.Time {
@@ -130,7 +208,7 @@ func findLowestNum(list *[]godo.Droplet) int {
 
 }
 
-func CreateDroplet(ctx context.Context, client *godo.Client, num int) (*godo.Droplet, error) {
+func CreateDroplet(ctx context.Context, client *godo.Client, num int, region string) (*godo.Droplet, error) {
 	var keys []godo.DropletCreateSSHKey
 	for _, key := range cfg.SSHKeys {
 		keys = append(keys, godo.DropletCreateSSHKey{ID: key})
@@ -142,7 +220,7 @@ func CreateDroplet(ctx context.Context, client *godo.Client, num int) (*godo.Dro
 		log.Fatal(err)
 	}
 
-    scr := fmt.Sprintf(`%s
+	scr := fmt.Sprintf(`%s
 (crontab -l ; echo "0 * * * * sh /root/upload.sh %s %s") | crontab -
 curl -u "%s:" -X MKCOL "%s/$ip"
 systemctl start tcpdumpd
@@ -150,7 +228,7 @@ reboot`, string(script), cfg.StorageLocation, cfg.StorageToken, cfg.StorageToken
 
 	createRequest := &godo.DropletCreateRequest{
 		Name:   fmt.Sprintf("telescope-%d", num),
-		Region: "fra1",
+		Region: region,
 		Size:   "s-1vcpu-512mb-10gb",
 		Image: godo.DropletCreateImage{
 			Slug: "ubuntu-23-10-x64",
