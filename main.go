@@ -17,13 +17,15 @@ import (
 )
 
 type Config struct {
-	ApiToken        string   `yaml:"apiToken"`
-	SSHKeys         []int    `yaml:"sshKeys"`
-	Diameter        int      `yaml:"diameter"` // Diameter is the telescope size
-	Regions         []string `yaml:"regions"`
-	StartUpScript   string   `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
-	StorageLocation string   `yaml:"storageLocation"`
-	StorageToken    string   `yaml:"storageToken"`
+	ApiToken         string   `yaml:"apiToken"`
+	SSHKeys          []int    `yaml:"sshKeys"`
+	Diameter         int      `yaml:"diameter"` // Diameter is the telescope size
+	Regions          []string `yaml:"regions"`
+	StartUpScript    string   `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
+	StorageLocation  string   `yaml:"storageLocation"`
+	StorageAccessKey string   `yaml:"accessKey"`
+	StorageSecretKey string   `yaml:"secretKey"`
+	StorageBucket    string   `yaml:"storageBucket"`
 }
 
 var cfg Config
@@ -221,10 +223,12 @@ func CreateDroplet(ctx context.Context, client *godo.Client, num int, region str
 	}
 
 	scr := fmt.Sprintf(`%s
-(crontab -l ; echo "0 * * * * sh /root/upload.sh %s %s") | crontab -
-curl -u "%s:" -X MKCOL "%s/$ip"
+(crontab -l ; echo "0 * * * * sh /root/upload.sh %s") | crontab -
+
+mc alias set tupload %s %s %s
+
 systemctl start tcpdumpd
-reboot`, string(script), cfg.StorageLocation, cfg.StorageToken, cfg.StorageToken, cfg.StorageLocation)
+reboot`, string(script), cfg.StorageBucket, cfg.StorageLocation, cfg.StorageAccessKey, cfg.StorageSecretKey)
 
 	createRequest := &godo.DropletCreateRequest{
 		Name:   fmt.Sprintf("telescope-%d", num),
