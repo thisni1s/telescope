@@ -15,6 +15,6 @@ fi
 
 cd $directory
 mc cp --recursive tcpdumpd/ tupload/$1/$ip
-rm tcpdump/*
+rm tcpdumpd/*
 
 systemctl start tcpdumpd
