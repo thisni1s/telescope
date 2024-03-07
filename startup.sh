@@ -17,12 +17,12 @@ systemctl enable tcpdumpd
 #Install Minio Client
 curl https://dl.min.io/client/mc/release/linux-amd64/mc \
   --create-dirs \
-  -o $HOME/minio-binaries/mc
+  -o /minio-binaries/mc
 
-chmod +x $HOME/minio-binaries/mc
-export PATH=$PATH:$HOME/minio-binaries/
+chmod +x /minio-binaries/mc
+export PATH=$PATH:/minio-binaries/
 cat <<EOF >> /root/.bashrc
-PATH=$PATH:$HOME/minio-binaries/
+PATH=$PATH:/minio-binaries/
 EOF
 
 
