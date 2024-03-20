@@ -223,7 +223,7 @@ func CreateDroplet(ctx context.Context, client *godo.Client, num int, region str
 	}
 
 	scr := fmt.Sprintf(`%s
-(crontab -l ; echo "0 * * * * sh /root/upload.sh %s") | crontab -
+(crontab -l ; echo "0 */12 * * * sh /root/upload.sh %s") | crontab -
 
 mc alias set tupload %s %s %s
 
@@ -233,7 +233,8 @@ reboot`, string(script), cfg.StorageBucket, cfg.StorageLocation, cfg.StorageAcce
 	createRequest := &godo.DropletCreateRequest{
 		Name:   fmt.Sprintf("telescope-%d", num),
 		Region: region,
-		Size:   "s-1vcpu-512mb-10gb",
+		//Size:   "s-1vcpu-512mb-10gb", Changed at 18.03.2024 17:16
+		Size: "s-1vcpu-1gb",
 		Image: godo.DropletCreateImage{
 			Slug: "ubuntu-23-10-x64",
 		},
