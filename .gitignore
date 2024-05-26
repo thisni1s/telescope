@@ -11,9 +11,11 @@
 # Test binary, built with `go test -c`
 *.test
 *.json
+*.txt
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+*.pdf
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
@@ -24,3 +26,6 @@
 
 # Go workspace file
 go.work
+
+# notebooks weil darin sind caida daten
+notebooks/
