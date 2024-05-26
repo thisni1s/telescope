@@ -28,4 +28,4 @@
 go.work
 
 # notebooks weil darin sind caida daten
-notebooks/
+#notebooks/
