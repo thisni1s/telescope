@@ -1,6 +1,10 @@
-apiToken: tokeeeeen
+apiToken: tokeeeen
 sshKeys: [1337, 4711]
-diameter: 1
+diameter: 0
+#regions: ["nyc1", "sfo3", "fra1", "ams3", "syd1", "sgp1"]
+regions: ["nyc1", "nyc2", "nyc3", "sfo1", "sfo2", "sfo3", "blr1", "fra1", "ams2", "ams3", "syd1", "sgp1", "lon1", "tor1"]
 startupScript: startup.sh
-storageLocation : https://yourwebdavurl/public.php/webdav
-storageToken: tokeeeen
+storageLocation : https://storage.test.de
+accessKey: key
+secretKey: key
+storageBucket: telescope/upload
