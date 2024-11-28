@@ -1,34 +1,31 @@
 package main
 
 import (
-	"context"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
-
-	//"encoding/json"
 	"fmt"
+	"github.com/thisni1s/telescope/cloudproviders"
+	"gopkg.in/yaml.v3"
 	"log"
 	"os"
-
-	"github.com/digitalocean/godo"
-	"gopkg.in/yaml.v3"
+	"sort"
+	"time"
 )
 
 type Config struct {
-	ApiToken         string   `yaml:"apiToken"`
-	SSHKeys          []int    `yaml:"sshKeys"`
-	Diameter         int      `yaml:"diameter"` // Diameter is the telescope size
-	Regions          []string `yaml:"regions"`
-	StartUpScript    string   `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
-	StorageLocation  string   `yaml:"storageLocation"`
-	StorageAccessKey string   `yaml:"accessKey"`
-	StorageSecretKey string   `yaml:"secretKey"`
-	StorageBucket    string   `yaml:"storageBucket"`
+	ApiToken         string                       `yaml:"apiToken"`
+	SSHKeys          []int                        `yaml:"sshKeys"`
+	Diameter         int                          `yaml:"diameter"` // Diameter is the telescope size
+	Regions          []string                     `yaml:"regions"`
+	StartUpScript    string                       `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
+	StorageLocation  string                       `yaml:"storageLocation"`
+	StorageAccessKey string                       `yaml:"accessKey"`
+	StorageSecretKey string                       `yaml:"secretKey"`
+	StorageBucket    string                       `yaml:"storageBucket"`
+	DigitalOcean     cloudproviders.GodoSpecifics `yaml:"digitalOcean"`
 }
 
 var cfg Config
+
+var cproviders []cloudproviders.CloudProvider
 
 func main() {
 	fmt.Printf(banner)
@@ -38,16 +35,36 @@ func main() {
 	}
 	err = yaml.Unmarshal(file, &cfg)
 
-	client := godo.NewFromToken(cfg.ApiToken)
-	ctx := context.TODO()
+	docl, err := cloudproviders.NewDigOceanClient(cloudproviders.GodoConfig{
+		ApiToken:         cfg.ApiToken,
+		SSHKeys:          cfg.SSHKeys,
+		StartUpScript:    cfg.StartUpScript,
+		StorageLocation:  cfg.StorageLocation,
+		StorageAccessKey: cfg.StorageAccessKey,
+		StorageSecretKey: cfg.StorageSecretKey,
+		StorageBucket:    cfg.StorageBucket,
+		Image:            cfg.DigitalOcean.Image,
+		Size:             cfg.DigitalOcean.Size,
+	})
+	if err != nil {
+		log.Println("Error creating provider!")
+		log.Fatal(err)
+	}
+
+	cproviders = append(cproviders, docl)
 
 	fmt.Println("Requested telescope diameter: ", cfg.Diameter)
 
-	list, err := DropletList(ctx, client)
-	if err != nil {
-		log.Println("Could not get Droplet list")
-		log.Fatal(err)
+	var list []cloudproviders.VMDescriptor
+	for _, prov := range cproviders {
+		plist, err := prov.ListVMs()
+		if err != nil {
+			log.Println("Error getting VM list from provider: ", prov.Info().Name)
+		} else {
+			list = append(list, plist...)
+		}
 	}
+
 	currRegs := calcCurrRegions(&list)
 	desiredRegs := calcRegions(cfg.Regions, cfg.Diameter)
 	didTransactions := false
@@ -57,28 +74,38 @@ func main() {
 		var toCreate int = (cfg.Diameter - len(list))
 		regionsStack := calcRegionStack(currRegs, desiredRegs, toCreate)
 
-		for i := 0; i < toCreate; i++ {
-			num := findLowestNum(&list)
-			reg := popSlice(&regionsStack)
-			drop, err := CreateDroplet(ctx, client, num, reg)
-			if err != nil {
-				log.Printf("Could not create droplet in region %s \n", reg)
-				log.Fatal(err)
+		// !TODO -> Spread new vms accross providers by key?
+		distribution := calcVmPerProvider(&cproviders, toCreate)
+
+		for _, prov := range cproviders {
+			provCreate := distribution[prov.Info().Name]
+			for i := 0; i < provCreate; i++ {
+				num := findLowestNum(&list)
+				reg := popSlice(&regionsStack)
+				vm, err := prov.CreateVM(cloudproviders.VMDescriptor{
+					Num:    num,
+					Region: reg,
+				})
+				if err != nil {
+					log.Printf("Could not create VM for Provider %s in region %s \n", prov.Info().Name, reg)
+					log.Fatal(err)
+				}
+				list = append(list, vm)
+				fmt.Printf("Created new node (%d) on %s with name: %s \n", vm.Num, prov.Info().Name, vm.Name)
 			}
-			list = append(list, *drop)
-			fmt.Printf("Created new node (%d) with name: %s \n", drop.ID, drop.Name)
 		}
+
 	}
 	if len(list) > cfg.Diameter {
 		fmt.Println("The current telescope is too big! Deleting oldest nodes!")
 		sort.Slice(list, func(i, j int) bool {
-			return getTimefromStr(list[i].Created).Before(getTimefromStr(list[j].Created))
+			return list[i].Created.Before(list[j].Created)
 		})
 		didTransactions = true
 		var toDelete int = (len(list) - cfg.Diameter)
 		for i := 0; i < toDelete; i++ {
 			fmt.Println("I will delete node: ", list[i].Name)
-			_, err := client.Droplets.Delete(ctx, list[i].ID)
+			err := list[i].Provider.DestroyVM(list[i])
 			if err != nil {
 				log.Println("Error deleting node!")
 				log.Fatal(err)
@@ -87,25 +114,25 @@ func main() {
 	}
 	// Get current version of the list if we did something to it
 	if didTransactions {
-		list, err = DropletList(ctx, client)
-		if err != nil {
-			log.Println("Could not get Droplet list")
-			log.Fatal(err)
+		var list []cloudproviders.VMDescriptor
+		for _, prov := range cproviders {
+			plist, err := prov.ListVMs()
+			if err != nil {
+				log.Println("Could not get Droplet list for provider: ", prov.Info().Name)
+				log.Fatal(err)
+			}
+			list = append(list, plist...)
 		}
 	}
 
 	fmt.Printf("The telescope consists of %d nodes \n", len(list))
-	for _, droplet := range list {
-		ip, _ := droplet.PublicIPv4()
-		if ip == "" {
-			ip = "not yet Available"
+	for _, vm := range list {
+		ip := "not yet available"
+		if vm.IP != "" {
+			ip = vm.IP
 		}
-		fmt.Printf("  [%d] %s [%s] Created: %s IP: %s \n", droplet.ID, droplet.Name, droplet.Region.Name, getTimefromStr(droplet.Created).Format("02.01.2006 15:04:05"), ip)
-		//a, _ := json.Marshal(droplet)
-		//fmt.Println(string(a))
-
+		fmt.Printf("  [%s] %s [%s] Created: %s IP: %s \n", vm.ID, vm.Name, vm.Region, vm.Created.Format("02.01.2006 15:04:05"), ip)
 	}
-
 }
 
 func popSlice(arr *[]string) string {
@@ -116,6 +143,29 @@ func popSlice(arr *[]string) string {
 	popped := (*arr)[lastIndex]
 	*arr = (*arr)[:lastIndex]
 	return popped
+}
+
+func calcVmPerProvider(provlist *[]cloudproviders.CloudProvider, numCreate int) map[string]int {
+
+	distribution := make(map[string]int)
+	if numCreate >= len(*provlist) {
+		baseNum := numCreate / len(*provlist)
+		for _, prov := range *provlist {
+			distribution[prov.Info().Name] = baseNum
+		}
+	}
+
+	remainder := numCreate % len(*provlist)
+
+	for _, prov := range *provlist {
+		if remainder > 0 {
+			distribution[prov.Info().Name]++
+			remainder--
+		} else {
+			break
+		}
+	}
+	return distribution
 }
 
 func calcRegionStack(currRegs map[string]int, ideal map[string]int, toCreate int) []string {
@@ -134,7 +184,7 @@ func calcRegionStack(currRegs map[string]int, ideal map[string]int, toCreate int
 	}
 
 	for key, val := range result {
-		for _ = range val {
+		for range val {
 			resStack = append(resStack, key)
 		}
 	}
@@ -142,13 +192,13 @@ func calcRegionStack(currRegs map[string]int, ideal map[string]int, toCreate int
 	return resStack
 }
 
-func calcCurrRegions(list *[]godo.Droplet) map[string]int {
+func calcCurrRegions(list *[]cloudproviders.VMDescriptor) map[string]int {
 	result := make(map[string]int)
-	for _, drop := range *list {
-		if _, ok := result[drop.Region.Slug]; !ok {
-			result[drop.Region.Slug]++
+	for _, vm := range *list {
+		if _, ok := result[vm.Region]; !ok {
+			result[vm.Region]++
 		} else {
-			result[drop.Region.Slug] = 1
+			result[vm.Region] = 1
 		}
 	}
 	return result
@@ -188,14 +238,10 @@ func getTimefromStr(str string) time.Time {
 	return t
 }
 
-func findLowestNum(list *[]godo.Droplet) int {
+func findLowestNum(list *[]cloudproviders.VMDescriptor) int {
 	var allNums []int
-	for _, drop := range *list {
-		num, err := strconv.Atoi(strings.Split(drop.Name, "-")[1])
-		if err != nil {
-			num = 9999
-		}
-		allNums = append(allNums, num)
+	for _, vm := range *list {
+		allNums = append(allNums, vm.Num)
 	}
 	sort.Ints(allNums)
 	// Überprüfe jede Zahl in der sortierten Liste
@@ -208,75 +254,6 @@ func findLowestNum(list *[]godo.Droplet) int {
 	}
 	return lowestFree
 
-}
-
-func CreateDroplet(ctx context.Context, client *godo.Client, num int, region string) (*godo.Droplet, error) {
-	var keys []godo.DropletCreateSSHKey
-	for _, key := range cfg.SSHKeys {
-		keys = append(keys, godo.DropletCreateSSHKey{ID: key})
-	}
-
-	script, err := os.ReadFile(cfg.StartUpScript)
-	if err != nil {
-		log.Println("Failed to read startup script!")
-		log.Fatal(err)
-	}
-
-	scr := fmt.Sprintf(`%s
-(crontab -l ; echo "0 */12 * * * sh /root/upload.sh %s") | crontab -
-
-mc alias set tupload %s %s %s
-
-systemctl start tcpdumpd
-reboot`, string(script), cfg.StorageBucket, cfg.StorageLocation, cfg.StorageAccessKey, cfg.StorageSecretKey)
-
-	createRequest := &godo.DropletCreateRequest{
-		Name:   fmt.Sprintf("telescope-%d", num),
-		Region: region,
-		//Size:   "s-1vcpu-512mb-10gb", Changed at 18.03.2024 17:16
-		Size: "s-1vcpu-1gb",
-		Image: godo.DropletCreateImage{
-			Slug: "ubuntu-23-10-x64",
-		},
-		Tags:     []string{"telescope"},
-		SSHKeys:  keys,
-		UserData: scr,
-	}
-
-	newDroplet, _, err := client.Droplets.Create(ctx, createRequest)
-	return newDroplet, err
-}
-
-func DropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, error) {
-	// create a list to hold our droplets
-	list := []godo.Droplet{}
-
-	// create options. initially, these will be blank
-	opt := &godo.ListOptions{}
-	for {
-		droplets, resp, err := client.Droplets.List(ctx, opt)
-		if err != nil {
-			return nil, err
-		}
-
-		// append the current page's droplets to our list
-		list = append(list, droplets...)
-
-		// if we are at the last page, break out the for loop
-		if resp.Links == nil || resp.Links.IsLastPage() {
-			break
-		}
-
-		page, err := resp.Links.CurrentPage()
-		if err != nil {
-			return nil, err
-		}
-
-		// set the page we want for the next request
-		opt.Page = page + 1
-	}
-
-	return list, nil
 }
 
 var banner string = `

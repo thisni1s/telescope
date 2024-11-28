@@ -8,3 +8,7 @@ storageLocation : https://storage.test.de
 accessKey: key
 secretKey: key
 storageBucket: telescope/upload
+digitalOcean:
+  size: s-1vcpu-1gb
+  os: ubuntu-24-04-x64
+
