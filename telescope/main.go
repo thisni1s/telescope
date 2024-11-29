@@ -1,51 +1,49 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"github.com/thisni1s/telescope/cloudproviders"
-	"gopkg.in/yaml.v3"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"time"
+
+	"github.com/thisni1s/telescope/cloudproviders"
+	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	ApiToken         string                       `yaml:"apiToken"`
-	SSHKeys          []int                        `yaml:"sshKeys"`
-	Diameter         int                          `yaml:"diameter"` // Diameter is the telescope size
-	Regions          []string                     `yaml:"regions"`
-	StartUpScript    string                       `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
-	StorageLocation  string                       `yaml:"storageLocation"`
-	StorageAccessKey string                       `yaml:"accessKey"`
-	StorageSecretKey string                       `yaml:"secretKey"`
-	StorageBucket    string                       `yaml:"storageBucket"`
-	DigitalOcean     cloudproviders.GodoSpecifics `yaml:"digitalOcean"`
-}
-
-var cfg Config
+var ninteractive bool
+var status bool
+var cfg cloudproviders.TelescopeConfig
 
 var cproviders []cloudproviders.CloudProvider
 
 func main() {
-	fmt.Printf(banner)
+	// Define a binary flag with a default value (false) and a description
+	flag.BoolVar(&ninteractive, "non-interactive", false, "Run in non interactive mode")
+	flag.BoolVar(&status, "status", false, "Display only the telescope status")
+	flag.Parse()
+
+	if !ninteractive && !status {
+		fmt.Printf(banner)
+	} else if !status {
+		log.Println("Started telescope manager")
+	}
+
+	// Read Config file
 	file, err := os.ReadFile("config.yml")
 	if err != nil {
 		log.Fatal("Could not read config file!")
 	}
 	err = yaml.Unmarshal(file, &cfg)
 
+	// Create provider clients
 	docl, err := cloudproviders.NewDigOceanClient(cloudproviders.GodoConfig{
-		ApiToken:         cfg.ApiToken,
-		SSHKeys:          cfg.SSHKeys,
-		StartUpScript:    cfg.StartUpScript,
-		StorageLocation:  cfg.StorageLocation,
-		StorageAccessKey: cfg.StorageAccessKey,
-		StorageSecretKey: cfg.StorageSecretKey,
-		StorageBucket:    cfg.StorageBucket,
-		Image:            cfg.DigitalOcean.Image,
-		Size:             cfg.DigitalOcean.Size,
+		StorageConfig: cfg.Storage,
+		GodoSpecifics: cfg.DigOcean,
 	})
+
 	if err != nil {
 		log.Println("Error creating provider!")
 		log.Fatal(err)
@@ -53,33 +51,59 @@ func main() {
 
 	cproviders = append(cproviders, docl)
 
-	fmt.Println("Requested telescope diameter: ", cfg.Diameter)
+	mocl, err := cloudproviders.NewMockClient(cloudproviders.MockConfig{
+		StorageConfig: cfg.Storage,
+		MockSpecifics: cfg.Mock,
+	})
 
-	var list []cloudproviders.VMDescriptor
+	if err != nil {
+		log.Println("Error creating Mock Provider!")
+		log.Fatal(err)
+	}
+
+	cproviders = append(cproviders, mocl)
+
+	if !status {
+		// Get current telescope status and print it
+		log.Println("Requested telescope diameter: ")
+		for _, prov := range cproviders {
+			log.Printf("\t%s\t%d\n", prov.Info().Name, prov.Info().Diameter)
+		}
+	}
+
+	list := make(map[string][]cloudproviders.VMDescriptor)
 	for _, prov := range cproviders {
 		plist, err := prov.ListVMs()
 		if err != nil {
 			log.Println("Error getting VM list from provider: ", prov.Info().Name)
 		} else {
-			list = append(list, plist...)
+			list[prov.Info().Name] = plist
 		}
 	}
 
-	currRegs := calcCurrRegions(&list)
-	desiredRegs := calcRegions(cfg.Regions, cfg.Diameter)
-	didTransactions := false
-	if len(list) < cfg.Diameter {
-		fmt.Println("To few nodes for requested diameter. Creating new nodes!")
-		didTransactions = true
-		var toCreate int = (cfg.Diameter - len(list))
-		regionsStack := calcRegionStack(currRegs, desiredRegs, toCreate)
-
-		// !TODO -> Spread new vms accross providers by key?
-		distribution := calcVmPerProvider(&cproviders, toCreate)
-
+	if !status {
+		// Get current telescope status and print it
+		log.Println("Actual telescope diameter: ")
 		for _, prov := range cproviders {
-			provCreate := distribution[prov.Info().Name]
-			for i := 0; i < provCreate; i++ {
+			log.Printf("\t%s\t%d\n", prov.Info().Name, len(list[prov.Info().Name]))
+		}
+	}
+	// What do we have to do?
+	currRegs := calcCurrRegions(&list)
+
+	didTransactions := false
+	for _, prov := range cproviders {
+		provName := prov.Info().Name
+		desiredRegs := calcRegions(prov.Info().Regions, prov.Info().Diameter)
+
+		if len(list[provName]) < prov.Info().Diameter {
+
+			log.Printf("To few nodes for requested diameter for provider: %s. Creating new nodes! \n", provName)
+			didTransactions = true
+			var toCreate int = (prov.Info().Diameter - len(list[provName]))
+			regionsStack := calcRegionStack(currRegs[provName], desiredRegs)
+
+			for i := 0; i < toCreate; i++ {
 				num := findLowestNum(&list)
 				reg := popSlice(&regionsStack)
 				vm, err := prov.CreateVM(cloudproviders.VMDescriptor{
@@ -87,31 +111,35 @@ func main() {
 					Region: reg,
 				})
 				if err != nil {
-					log.Printf("Could not create VM for Provider %s in region %s \n", prov.Info().Name, reg)
+					log.Printf("Could not create VM for Provider %s in region %s \n", provName, reg)
 					log.Fatal(err)
 				}
-				list = append(list, vm)
-				fmt.Printf("Created new node (%d) on %s with name: %s \n", vm.Num, prov.Info().Name, vm.Name)
+				list[provName] = append(list[provName], vm)
+				log.Printf("Created new node (%d) on %s with name: %s \n", vm.Num, provName, vm.Name)
+			}
+		}
+
+		if len(list[provName]) > prov.Info().Diameter {
+			log.Printf("The current %s telescope is too big! Deleting oldest nodes!\n", provName)
+			didTransactions = true
+			plist := list[provName]
+			sort.Slice(plist, func(i, j int) bool {
+				return plist[i].Created.Before(plist[j].Created)
+			})
+
+			var toDelete int = (len(list[provName]) - prov.Info().Diameter)
+			for i := 0; i < toDelete; i++ {
+				log.Println("I will delete node: ", plist[i].Name)
+				err := plist[i].Provider.DestroyVM(plist[i])
+				if err != nil {
+					log.Println("Error deleting node!")
+					log.Fatal(err)
+				}
 			}
 		}
 
 	}
-	if len(list) > cfg.Diameter {
-		fmt.Println("The current telescope is too big! Deleting oldest nodes!")
-		sort.Slice(list, func(i, j int) bool {
-			return list[i].Created.Before(list[j].Created)
-		})
-		didTransactions = true
-		var toDelete int = (len(list) - cfg.Diameter)
-		for i := 0; i < toDelete; i++ {
-			fmt.Println("I will delete node: ", list[i].Name)
-			err := list[i].Provider.DestroyVM(list[i])
-			if err != nil {
-				log.Println("Error deleting node!")
-				log.Fatal(err)
-			}
-		}
-	}
+
 	// Get current version of the list if we did something to it
 	if didTransactions {
 		var list []cloudproviders.VMDescriptor
@@ -123,15 +151,13 @@ func main() {
 			}
 			list = append(list, plist...)
 		}
+		log.Printf("The telescope consists of %d nodes \n", len(list))
+	} else if !status {
+		log.Println("Nothing changes performed, quitting.")
 	}
 
-	fmt.Printf("The telescope consists of %d nodes \n", len(list))
-	for _, vm := range list {
-		ip := "not yet available"
-		if vm.IP != "" {
-			ip = vm.IP
-		}
-		fmt.Printf("  [%s] %s [%s] Created: %s IP: %s \n", vm.ID, vm.Name, vm.Region, vm.Created.Format("02.01.2006 15:04:05"), ip)
+	if !ninteractive {
+		prettyPrint(&list)
 	}
 }
 
@@ -168,7 +194,7 @@ func calcVmPerProvider(provlist *[]cloudproviders.CloudProvider, numCreate int) 
 	return distribution
 }
 
-func calcRegionStack(currRegs map[string]int, ideal map[string]int, toCreate int) []string {
+func calcRegionStack(currRegs map[string]int, ideal map[string]int) []string {
 	result := make(map[string]int)
 	var resStack []string
 
@@ -192,16 +218,18 @@ func calcRegionStack(currRegs map[string]int, ideal map[string]int, toCreate int
 	return resStack
 }
 
-func calcCurrRegions(list *[]cloudproviders.VMDescriptor) map[string]int {
-	result := make(map[string]int)
-	for _, vm := range *list {
-		if _, ok := result[vm.Region]; !ok {
-			result[vm.Region]++
-		} else {
-			result[vm.Region] = 1
+func calcCurrRegions(list *map[string][]cloudproviders.VMDescriptor) map[string]map[string]int {
+	res := make(map[string]map[string]int)
+	for provName, vms := range *list {
+		for _, vm := range vms {
+			if _, ok := res[provName][vm.Region]; !ok {
+				res[provName] = make(map[string]int)
+			} else {
+				res[provName][vm.Region]++
+			}
 		}
 	}
-	return result
+	return res
 }
 
 func calcRegions(regions []string, diameter int) map[string]int {
@@ -238,10 +266,12 @@ func getTimefromStr(str string) time.Time {
 	return t
 }
 
-func findLowestNum(list *[]cloudproviders.VMDescriptor) int {
+func findLowestNum(list *map[string][]cloudproviders.VMDescriptor) int {
 	var allNums []int
-	for _, vm := range *list {
-		allNums = append(allNums, vm.Num)
+	for _, vms := range *list {
+		for _, vm := range vms {
+			allNums = append(allNums, vm.Num)
+		}
 	}
 	sort.Ints(allNums)
 	// Überprüfe jede Zahl in der sortierten Liste
@@ -253,6 +283,48 @@ func findLowestNum(list *[]cloudproviders.VMDescriptor) int {
 		}
 	}
 	return lowestFree
+
+}
+
+func prettyPrint(list *map[string][]cloudproviders.VMDescriptor) {
+	if !status {
+		fmt.Println()
+		fmt.Println("The current telescope:")
+	}
+
+	cList := make([]cloudproviders.VMDescriptor, 0)
+	for _, vms := range *list {
+		cList = append(cList, vms...)
+	}
+
+	if len(cList) < 1 {
+		return
+	}
+
+	// Calculate max widths for each column
+	var maxId, maxName, maxReg, maxIP, maxProv int
+	for _, vm := range cList {
+		maxId = int(math.Max(float64(maxId), float64(len(vm.ID))))
+		maxName = int(math.Max(float64(maxName), float64(len(vm.Name))))
+		maxReg = int(math.Max(float64(maxReg), float64(len(vm.Region))))
+		maxIP = int(math.Max(float64(maxIP), float64(len(vm.IP))))
+		maxProv = int(math.Max(float64(maxProv), float64(len(vm.Provider.Info().Name))))
+	}
+
+	// Set minimum column width
+	maxId = int(math.Max(float64(maxId), 5))
+	maxName = int(math.Max(float64(maxName), 5))
+	maxReg = int(math.Max(float64(maxReg), 10))
+	maxIP = int(math.Max(float64(maxIP), 5))
+	maxProv = int(math.Max(float64(maxProv), 10))
+
+	// Print table header with dynamic column widths
+	s := fmt.Sprintf("%%-%ds\t%%-%ds\t%%-%ds\t%%-20s\t%%-%ds\t\t%%-%ds\n", maxId, maxName, maxReg, maxIP, maxProv)
+	fmt.Printf(s, "[ID]", "Name", "[Region]", "Created", "IP", "(Provider)")
+
+	for _, vm := range cList {
+		fmt.Printf(s, vm.ID, vm.Name, vm.Region, vm.Created.Format("02.01.2006 15:04:05"), vm.IP, vm.Provider.Info().Name)
+	}
 
 }
 

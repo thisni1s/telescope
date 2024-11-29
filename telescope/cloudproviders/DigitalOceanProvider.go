@@ -13,20 +13,18 @@ import (
 )
 
 type GodoConfig struct {
-	ApiToken         string `yaml:"apiToken"`
-	SSHKeys          []int  `yaml:"sshKeys"`
-	StartUpScript    string `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
-	StorageLocation  string `yaml:"storageLocation"`
-	StorageAccessKey string `yaml:"accessKey"`
-	StorageSecretKey string `yaml:"secretKey"`
-	StorageBucket    string `yaml:"storageBucket"`
-	Image            string `yaml:"os"`
-	Size             string `yaml:"size"`
+	StorageConfig
+	GodoSpecifics
 }
 
 type GodoSpecifics struct {
-	Image string `yaml:"os"`
-	Size  string `yaml:"size"`
+	ApiToken      string   `yaml:"apiToken"`
+	Size          string   `yaml:"size"`
+	Image         string   `yaml:"os"`
+	StartUpScript string   `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
+	SSHKeys       []int    `yaml:"sshKeys"`
+	Regions       []string `yaml:"regions"`
+	NumVMs        int      `yaml:"numVMs"`
 }
 
 type doClient struct {
@@ -42,6 +40,8 @@ func NewDigOceanClient(cfg GodoConfig) (*doClient, error) {
 	return &doClient{
 		CloudProviderInfo: CloudProviderInfo{
 			Name: "DigitalOcean",
+            Diameter: cfg.NumVMs,
+            Regions: cfg.Regions,
 		},
 		client:  client,
 		context: ctx,

@@ -26,6 +26,7 @@
 
 # Go workspace file
 go.work
+*.gob
 
 # notebooks weil darin sind caida daten
 #notebooks/

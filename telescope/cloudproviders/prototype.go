@@ -10,7 +10,23 @@ type CloudProvider interface {
 }
 
 type CloudProviderInfo struct {
-	Name string
+	Name     string
+	Regions  []string
+	Diameter int
+}
+
+type StorageConfig struct {
+	StorageLocation  string `yaml:"storageLocation"`
+	StorageAccessKey string `yaml:"accessKey"`
+	StorageSecretKey string `yaml:"secretKey"`
+	StorageBucket    string `yaml:"storageBucket"`
+}
+
+type TelescopeConfig struct {
+	Diameter int           `yaml:"diameter"`
+	Storage  StorageConfig `yaml:"storage"`
+	DigOcean GodoSpecifics `yaml:"digitalOcean"`
+	Mock     MockSpecifics `yaml:"mockProvider"`
 }
 
 type VMDescriptor struct {
