@@ -1,0 +1,8 @@
+[Unit]
+Description=Webhook server socket
+
+[Socket]
+ListenStream=51337
+
+[Install]
+WantedBy=multi-user.target

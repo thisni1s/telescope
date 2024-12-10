@@ -39,9 +39,9 @@ func NewDigOceanClient(cfg GodoConfig) (*doClient, error) {
 	ctx := context.TODO()
 	return &doClient{
 		CloudProviderInfo: CloudProviderInfo{
-			Name: "DigitalOcean",
-            Diameter: cfg.NumVMs,
-            Regions: cfg.Regions,
+			Name:     "DigitalOcean",
+			Diameter: cfg.NumVMs,
+			Regions:  cfg.Regions,
 		},
 		client:  client,
 		context: ctx,
@@ -102,13 +102,17 @@ func createDroplet(c *doClient, desc VMDescriptor) (*godo.Droplet, error) {
 		return nil, err
 	}
 
-	scr := fmt.Sprintf(`%s
-(crontab -l ; echo "0 */12 * * * sh /root/upload.sh %s") | crontab -
+	scr := fmt.Sprintf(`
+#!/bin/sh
+mkdir /root/config
+echo %s > /root/config/bucket.txt
+echo %s > /root/config/storageLoc.txt
+echo %s > /root/config/storageAccKey.txt
+echo %s > /root/config/storageSecKey.txt
+echo %s > /root/config/webhookPw.txt
 
-mc alias set tupload %s %s %s
-
-systemctl start tcpdumpd
-reboot`, string(script), c.config.StorageBucket, c.config.StorageLocation, c.config.StorageAccessKey, c.config.StorageSecretKey)
+%s`, c.config.StorageBucket, c.config.StorageLocation, c.config.StorageAccessKey, c.config.StorageSecretKey, "webhookpw", string(script))
+// TODO! Change webhook passowrd
 
 	createRequest := &godo.DropletCreateRequest{
 		Name:   fmt.Sprintf("telescope-%d", desc.Num),
