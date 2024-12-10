@@ -1,0 +1,11 @@
+[
+  {
+    "id": "teardown",
+    "execute-command": "/var/scripts/teardown.sh",
+  }
+  {
+      "id": "ping",
+      "execute-command": "/var/scripts/ping.sh",
+      "include-command-output-in-response": true,
+  }
+]

@@ -33,3 +33,4 @@ go.work
 
 # Allow
 !*.sample.yml
+!*hook.json
