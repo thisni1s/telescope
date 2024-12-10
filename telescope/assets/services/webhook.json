@@ -8,4 +8,8 @@
       "execute-command": "/var/scripts/ping.sh",
       "include-command-output-in-response": true,
   }
+  {
+      "id": "restart",
+      "execute-command": "/var/scripts/restart.sh",
+  }
 ]
