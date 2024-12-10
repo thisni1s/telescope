@@ -105,13 +105,15 @@ func createDroplet(c *doClient, desc VMDescriptor) (*godo.Droplet, error) {
 	scr := fmt.Sprintf(`
 #!/bin/sh
 mkdir /root/config
-echo %s > /root/config/bucket.txt
-echo %s > /root/config/storageLoc.txt
-echo %s > /root/config/storageAccKey.txt
-echo %s > /root/config/storageSecKey.txt
-echo %s > /root/config/webhookPw.txt
+echo "%s" > /root/config/bucket.txt
+echo "%s" > /root/config/storageLoc.txt
+echo "%s" > /root/config/storageAccKey.txt
+echo "%s" > /root/config/storageSecKey.txt
+echo "%s" > /root/config/webhookPw.txt
 
 %s`, c.config.StorageBucket, c.config.StorageLocation, c.config.StorageAccessKey, c.config.StorageSecretKey, "webhookpw", string(script))
+
+println(scr)
 // TODO! Change webhook passowrd
 
 	createRequest := &godo.DropletCreateRequest{
