@@ -56,7 +56,7 @@ ip=$( dig +short myip.opendns.com @resolver1.opendns.com | sed -r 's/\./-/g' )
 
 bucket=$(cat /root/config/bucket.txt)
 
-(crontab -l ; echo '0 */12 * * * sh /root/upload.sh $bucket') | crontab -
+(crontab -l ; echo '0 */12 * * * sh /root/upload.sh') | crontab -
 
 mc alias set tupload $(cat /root/config/storageLoc.txt) $(cat /root/config/storageAccKey.txt) $(cat /root/config/storageSecKey.txt)
 

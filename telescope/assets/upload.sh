@@ -2,7 +2,7 @@
 
 # Directory containing .pcap files
 directory="/var/log/"
-bucket=$1
+bucket=$(cat /root/config/bucket.txt)
 ip=$( dig +short myip.opendns.com @resolver1.opendns.com | sed -r 's/\./-/g' )
 
 export PATH=$PATH:/minio-binaries/
