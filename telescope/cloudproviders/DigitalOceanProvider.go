@@ -3,8 +3,8 @@ package cloudproviders
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
+	//"log"
+	//"os"
 	"strconv"
 	"strings"
 

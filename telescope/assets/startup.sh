@@ -60,6 +60,7 @@ bucket=$(cat /root/config/bucket.txt)
 
 mc alias set tupload $(cat /root/config/storageLoc.txt) $(cat /root/config/storageAccKey.txt) $(cat /root/config/storageSecKey.txt)
 
-systemctl daemon-reload
-systemctl restart ssh
+systemctl stop ssh.service
+systemctl restart ssh.socket
 systemctl start tcpdumpd
+systemctl daemon-reload
