@@ -2,19 +2,21 @@
   {
     "id": "teardown",
     "execute-command": "/var/scripts/teardown.sh",
+    "trigger-rule":{"match":{"type":"value","value":"##WHPW##","parameter":{"source":"url","name":"token"}}}
   },
   {
-      "id": "ping",
-      "execute-command": "/var/scripts/ping.sh",
-      "include-command-output-in-response": true,
+    "id": "ping",
+    "execute-command": "/var/scripts/ping.sh",
+    "include-command-output-in-response": true,
   },
   {
-      "id": "status",
-      "execute-command": "/var/scripts/status.sh",
-      "include-command-output-in-response": true,
+    "id": "status",
+    "execute-command": "/var/scripts/status.sh",
+    "include-command-output-in-response": true,
   },
   {
-      "id": "restart",
-      "execute-command": "/var/scripts/restart.sh",
+    "id": "restart",
+    "execute-command": "/var/scripts/restart.sh",
+    "trigger-rule":{"match":{"type":"value","value":"##WHPW##","parameter":{"source":"url","name":"token"}}}
   }
 ]

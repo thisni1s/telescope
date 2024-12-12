@@ -33,6 +33,7 @@ wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telesc
 chmod +x /var/scripts/*
 
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.json -P /etc/
+sed -i "s/##WHPW##/$5/g" /etc/webhook.json
 
 #Install Minio Client
 curl https://dl.min.io/client/mc/release/linux-amd64/mc \
