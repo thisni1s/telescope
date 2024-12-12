@@ -7,12 +7,12 @@
   {
     "id": "ping",
     "execute-command": "/var/scripts/ping.sh",
-    "include-command-output-in-response": true,
+    "include-command-output-in-response": true
   },
   {
     "id": "status",
     "execute-command": "/var/scripts/status.sh",
-    "include-command-output-in-response": true,
+    "include-command-output-in-response": true
   },
   {
     "id": "restart",
