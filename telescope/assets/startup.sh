@@ -10,7 +10,7 @@ echo $5 > /root/config/webhookPw.txt
 export DEBIAN_FRONTEND=noninteractive
 apt update -y
 apt upgrade -y
-apt install tcpdump -y # already installed
+apt install tcpdump jc -y # already installed
 
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/tcpdumpd.service -P /usr/lib/systemd/system
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.service -P /usr/lib/systemd/system
