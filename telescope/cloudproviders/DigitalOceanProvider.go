@@ -15,16 +15,16 @@ import (
 type GodoConfig struct {
 	StorageConfig
 	GodoSpecifics
+    CommonConfig
 }
 
 type GodoSpecifics struct {
-	ApiToken      string   `yaml:"apiToken"`
-	Size          string   `yaml:"size"`
-	Image         string   `yaml:"os"`
-	StartUpScript string   `yaml:"startupScript"` // StartUpScript is a path to a bash script executed on node creation
-	SSHKeys       []int    `yaml:"sshKeys"`
-	Regions       []string `yaml:"regions"`
-	NumVMs        int      `yaml:"numVMs"`
+	ApiToken string   `yaml:"apiToken"`
+	Size     string   `yaml:"size"`
+	Image    string   `yaml:"os"`
+	SSHKeys  []int    `yaml:"sshKeys"`
+	Regions  []string `yaml:"regions"`
+	NumVMs   int      `yaml:"numVMs"`
 }
 
 type doClient struct {

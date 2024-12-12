@@ -1,5 +1,8 @@
 diameter: 0
 
+common:
+  webhookPw: verysecure
+
 storage:
   storageLocation : https://storage.server.eu
   accessKey: accesskey
@@ -12,7 +15,6 @@ digitalOcean:
   size: s-1vcpu-1gb
   os: ubuntu-24-04-x64
   regions: ["nyc1", "nyc2", "nyc3", "sfo1", "sfo2", "sfo3", "blr1", "fra1", "ams2", "ams3", "syd1", "sgp1", "lon1", "tor1"]
-  startupScript: startup.sh
   numVMs: 0
 
 mockProvider:

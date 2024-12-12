@@ -24,9 +24,14 @@ type StorageConfig struct {
 
 type TelescopeConfig struct {
 	Diameter int           `yaml:"diameter"`
+	Common   CommonConfig  `yaml:"common"`
 	Storage  StorageConfig `yaml:"storage"`
 	DigOcean GodoSpecifics `yaml:"digitalOcean"`
 	Mock     MockSpecifics `yaml:"mockProvider"`
+}
+
+type CommonConfig struct {
+	WebhookPw string `yaml:"webhookPw"`
 }
 
 type VMDescriptor struct {

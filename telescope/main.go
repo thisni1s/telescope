@@ -42,6 +42,7 @@ func main() {
 	docl, err := cloudproviders.NewDigOceanClient(cloudproviders.GodoConfig{
 		StorageConfig: cfg.Storage,
 		GodoSpecifics: cfg.DigOcean,
+        CommonConfig: cfg.Common,
 	})
 
 	if err != nil {
@@ -54,6 +55,7 @@ func main() {
 	mocl, err := cloudproviders.NewMockClient(cloudproviders.MockConfig{
 		StorageConfig: cfg.Storage,
 		MockSpecifics: cfg.Mock,
+        CommonConfig: cfg.Common,
 	})
 
 	if err != nil {

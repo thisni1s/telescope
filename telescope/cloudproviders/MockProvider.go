@@ -22,6 +22,7 @@ type MockSpecifics struct {
 type MockConfig struct {
 	MockSpecifics
 	StorageConfig
+    CommonConfig
 }
 
 type mockClient struct {
@@ -185,6 +186,6 @@ func indexOf(slice *[]VMDescriptor, target VMDescriptor) int {
 
 // Function to delete an element from the slice by index
 func deleteFromSlice(slice *[]VMDescriptor, index int) {
-    (*slice)[index] = (*slice)[len(*slice)-1]
-    *slice = (*slice)[:len(*slice)-1]
+	(*slice)[index] = (*slice)[len(*slice)-1]
+	*slice = (*slice)[:len(*slice)-1]
 }
