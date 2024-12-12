@@ -17,6 +17,10 @@ apt install tcpdump jc -y # already installed
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/tcpdumpd.service -P /usr/lib/systemd/system
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.service -P /usr/lib/systemd/system
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.socket -P /usr/lib/systemd/system
+
+iface=$(ip route show default | awk '{print $5}')
+sed -i "s/##IFACE##/$iface/g" /usr/lib/systemd/system/tcpdumpd.service
+
 systemctl enable tcpdumpd
 
 
