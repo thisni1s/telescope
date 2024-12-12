@@ -44,6 +44,7 @@ curl -L https://github.com/adnanh/webhook/releases/latest/download/webhook-linux
 tar xf webhook.tar.gz
 mv webhook-linux-amd64/webhook /usr/local/bin/webhook
 rmdir webhook-linux-amd64
+rm webhook.tar.gz
 systemctl enable webhook.socket
 systemctl start webhook.socket
 
