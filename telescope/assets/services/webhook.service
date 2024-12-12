@@ -3,7 +3,7 @@ Description=Webhook server
 
 [Service]
 Type=exec
-ExecStart=/usr/local/bin/webhook -nopanic -hooks /etc/webhook.json
+ExecStart=/usr/local/bin/webhook -nopanic -secure -cert /root/config/cert.pem -key /root/config/key.pem -hooks /etc/webhook.json
 
 User=root
 Group=root
