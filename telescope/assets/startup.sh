@@ -8,7 +8,6 @@ echo $4 > /root/config/storageSecKey.txt
 echo $5 > /root/config/webhookPw.txt
 openssl req -x509 -newkey ed25519 -keyout /root/config/key.key -outform PEM -out /root/config/cert.pem -days 365 -nodes -subj "/C=DE/ST=NW/L=Muenster/O=Univeristy of Muenster/OU=NetSec Group/CN=$(cat /etc/hostname)"
 
-
 export DEBIAN_FRONTEND=noninteractive
 apt update -y
 apt upgrade -y
@@ -20,9 +19,7 @@ wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telesc
 
 iface=$(ip route show default | awk '{print $5}')
 sed -i "s/##IFACE##/$iface/g" /usr/lib/systemd/system/tcpdumpd.service
-
 systemctl enable tcpdumpd
-
 
 mkdir -p /var/scripts
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/upload.sh -P /var/scripts/
@@ -60,8 +57,6 @@ cat >/etc/systemd/system/ssh.socket.d/listen.conf <<EOF
 ListenStream=
 ListenStream=28763
 EOF
-
-ip=$( dig +short myip.opendns.com @resolver1.opendns.com | sed -r 's/\./-/g' )
 
 bucket=$(cat /root/config/bucket.txt)
 
