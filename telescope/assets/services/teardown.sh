@@ -1,3 +1,3 @@
 #!/bin/sh
-sh /var/scripts/upload.sh $(cat /root/config/bucket.txt)
+sh /var/scripts/upload.sh
 systemctl stop tcpdumpd

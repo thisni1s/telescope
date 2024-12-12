@@ -9,6 +9,11 @@
       "include-command-output-in-response": true,
   },
   {
+      "id": "status",
+      "execute-command": "/var/scripts/status.sh",
+      "include-command-output-in-response": true,
+  },
+  {
       "id": "restart",
       "execute-command": "/var/scripts/restart.sh",
   }
