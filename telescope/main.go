@@ -1,10 +1,14 @@
 package main
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math"
+	"net/http"
 	"os"
 	"sort"
 	"time"
@@ -16,6 +20,7 @@ import (
 var ninteractive bool
 var status bool
 var cfg cloudproviders.TelescopeConfig
+var client *http.Client
 
 var cproviders []cloudproviders.CloudProvider
 
@@ -38,9 +43,18 @@ func main() {
 	}
 	err = yaml.Unmarshal(file, &cfg)
 
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true, // Skip SSL certificate validation
+		},
+	}
+	client = &http.Client{
+		Transport: tr,
+	}
+
 	initProviders()
 
-    // Print requested telescope size
+	// Print requested telescope size
 	if !status {
 		log.Println("Requested telescope diameter: ")
 		for _, prov := range cproviders {
@@ -48,7 +62,7 @@ func main() {
 		}
 	}
 
-    // Get current telescope status
+	// Get current telescope status
 	list := make(map[string][]cloudproviders.VMDescriptor)
 	for _, prov := range cproviders {
 		plist, err := prov.ListVMs()
@@ -59,7 +73,7 @@ func main() {
 		}
 	}
 
-    // Print actual telescope size
+	// Print actual telescope size
 	if !status {
 		log.Println("Actual telescope diameter: ")
 		for _, prov := range cproviders {
@@ -67,10 +81,10 @@ func main() {
 		}
 	}
 
-    deleteOldNodes(&list)
+	deleteOldNodes(&list)
 
 	didTransactions := false
-    adjustSize(&didTransactions, &list)
+	adjustSize(&didTransactions, &list)
 
 	// Get current version of the list if we did something to it
 	if didTransactions {
@@ -177,16 +191,58 @@ func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescr
 }
 
 func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor) {
-    for _, provider := range *list {
-        for _, vm := range provider {
-            if time.Now().Sub(vm.Created).Minutes() > float64(cfg.Common.Lifetime) {
-                println("we have to delete the vm: ", vm.Name)
-            } else {
-                println("vm ist still to young: ", vm.Name)
-            }
-        }
-    }
+	for _, provider := range *list {
+		for _, vm := range provider {
+			if time.Now().Sub(vm.Created).Minutes() > float64(cfg.Common.Lifetime) {
+				println("we have to delete the vm: ", vm.Name)
+				//Step one teardown
+				state, err := getVMStatus(&vm)
+				if err != nil {
+					log.Println("Cannot get Status of VM: ", vm.Name)
+					continue
+				}
+				if state.Teardown == "available" {
+					_, err := teardownVM(&vm)
+					if err != nil {
+						log.Println("Error tearing down VM", vm.Name)
+						log.Println(err)
+					}
+				} else if state.Teardown == "started" {
+					continue
+				} else if state.Teardown == "finished" {
+					vm.Provider.DestroyVM(vm)
+				}
 
+			} else {
+				println("vm ist still to young: ", vm.Name)
+			}
+		}
+	}
+
+}
+
+func getVMStatus(vm *cloudproviders.VMDescriptor) (cloudproviders.VMStatusResponse, error) {
+	var response cloudproviders.VMStatusResponse
+	url := fmt.Sprintf("https://%s:51337/hooks/status", vm.IP)
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return response, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return response, err
+	}
+	err = json.Unmarshal(body, &response)
+	return response, err
+}
+
+func teardownVM(vm *cloudproviders.VMDescriptor) (*http.Response, error) {
+	url := fmt.Sprintf("https://%s:51337/hooks/teardown?token=%s", vm.IP, cfg.Common.WebhookPw)
+	resp, err := client.Get(url)
+	return resp, err
 }
 
 func popSlice(arr *[]string) string {
