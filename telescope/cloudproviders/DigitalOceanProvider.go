@@ -95,21 +95,13 @@ func createDroplet(c *doClient, desc VMDescriptor) (*godo.Droplet, error) {
 	for _, key := range c.config.SSHKeys {
 		keys = append(keys, godo.DropletCreateSSHKey{ID: key})
 	}
-
-	//script, err := os.ReadFile(c.config.StartUpScript)
-	//if err != nil {
-	//	log.Println("Failed to read startup script!")
-	//		return nil, err
-	//	}
-
+    println("creating vm in region: ", desc.Region)
 	scr := fmt.Sprintf(`#cloud-config
 packages:
   - curl
 runcmd:
-  - curl -sSL https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/startup.sh | bash -s -- %s %s %s %s %s %s
-`, c.config.StorageBucket, c.config.StorageLocation, c.config.StorageAccessKey, c.config.StorageSecretKey, c.config.CommonConfig.WebhookPw, "DigitalOcean")
-
-	// TODO! Change webhook passowrd
+  - curl -sSL https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/startup.sh | bash -s -- %s %s %s %s %s %s %s
+`, c.config.StorageBucket, c.config.StorageLocation, c.config.StorageAccessKey, c.config.StorageSecretKey, c.config.CommonConfig.WebhookPw, "DigitalOcean", desc.Region)
 
 	createRequest := &godo.DropletCreateRequest{
 		Name:   fmt.Sprintf("telescope-%d", desc.Num),

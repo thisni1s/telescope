@@ -72,10 +72,12 @@ ip4=$(dig +short myip.opendns.com @resolver1.opendns.com)
 otime=$(date --iso-8601=seconds)
 os=$(hostnamectl | grep Operating | cut -d ':' --fields 2 | tr -d ' ')
 
-echo "{\"hostname\": \"$name\", \"provider\": $6, \"ipv4\": \"$ip4\", \"creation\": \"$otime\", \"os\": \"$os\", \"region\": \"$7\"}" > /root/config/descriptor.txt
+echo "{\"hostname\": \"$name\", \"provider\": \"$6\", \"ipv4\": \"$ip4\", \"creation\": \"$otime\", \"os\": \"$os\", \"region\": \"$7\"}" > /root/config/descriptor.txt
 echo $otime > /root/config/otime.txt
 
-mc cp /root/config/descriptor.txt tupload/$(cat /root/config/bucket.txt)/$ip4
+ip=$( echo $ip4 | sed -r 's/\./-/g' )
+
+mc cp /root/config/descriptor.txt tupload/$(cat /root/config/bucket.txt)/$ip/descriptor.txt
 
 systemctl daemon-reload
 systemctl restart ssh.socket
