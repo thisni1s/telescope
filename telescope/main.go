@@ -38,41 +38,17 @@ func main() {
 	}
 	err = yaml.Unmarshal(file, &cfg)
 
-	// Create provider clients
-	docl, err := cloudproviders.NewDigOceanClient(cloudproviders.GodoConfig{
-		StorageConfig: cfg.Storage,
-		GodoSpecifics: cfg.DigOcean,
-        CommonConfig: cfg.Common,
-	})
+	initProviders()
 
-	if err != nil {
-		log.Println("Error creating provider!")
-		log.Fatal(err)
-	}
-
-	cproviders = append(cproviders, docl)
-
-	mocl, err := cloudproviders.NewMockClient(cloudproviders.MockConfig{
-		StorageConfig: cfg.Storage,
-		MockSpecifics: cfg.Mock,
-        CommonConfig: cfg.Common,
-	})
-
-	if err != nil {
-		log.Println("Error creating Mock Provider!")
-		log.Fatal(err)
-	}
-
-	cproviders = append(cproviders, mocl)
-
+    // Print requested telescope size
 	if !status {
-		// Get current telescope status and print it
 		log.Println("Requested telescope diameter: ")
 		for _, prov := range cproviders {
 			log.Printf("\t%s\t%d\n", prov.Info().Name, prov.Info().Diameter)
 		}
 	}
 
+    // Get current telescope status
 	list := make(map[string][]cloudproviders.VMDescriptor)
 	for _, prov := range cproviders {
 		plist, err := prov.ListVMs()
@@ -83,64 +59,18 @@ func main() {
 		}
 	}
 
+    // Print actual telescope size
 	if !status {
-		// Get current telescope status and print it
 		log.Println("Actual telescope diameter: ")
 		for _, prov := range cproviders {
 			log.Printf("\t%s\t%d\n", prov.Info().Name, len(list[prov.Info().Name]))
 		}
 	}
-	// What do we have to do?
-	currRegs := calcCurrRegions(&list)
+
+    deleteOldNodes(&list)
 
 	didTransactions := false
-	for _, prov := range cproviders {
-		provName := prov.Info().Name
-		desiredRegs := calcRegions(prov.Info().Regions, prov.Info().Diameter)
-
-		if len(list[provName]) < prov.Info().Diameter {
-
-			log.Printf("To few nodes for requested diameter for provider: %s. Creating new nodes! \n", provName)
-			didTransactions = true
-			var toCreate int = (prov.Info().Diameter - len(list[provName]))
-			regionsStack := calcRegionStack(currRegs[provName], desiredRegs)
-
-			for i := 0; i < toCreate; i++ {
-				num := findLowestNum(&list)
-				reg := popSlice(&regionsStack)
-				vm, err := prov.CreateVM(cloudproviders.VMDescriptor{
-					Num:    num,
-					Region: reg,
-				})
-				if err != nil {
-					log.Printf("Could not create VM for Provider %s in region %s \n", provName, reg)
-					log.Fatal(err)
-				}
-				list[provName] = append(list[provName], vm)
-				log.Printf("Created new node (%d) on %s with name: %s \n", vm.Num, provName, vm.Name)
-			}
-		}
-
-		if len(list[provName]) > prov.Info().Diameter {
-			log.Printf("The current %s telescope is too big! Deleting oldest nodes!\n", provName)
-			didTransactions = true
-			plist := list[provName]
-			sort.Slice(plist, func(i, j int) bool {
-				return plist[i].Created.Before(plist[j].Created)
-			})
-
-			var toDelete int = (len(list[provName]) - prov.Info().Diameter)
-			for i := 0; i < toDelete; i++ {
-				log.Println("I will delete node: ", plist[i].Name)
-				err := plist[i].Provider.DestroyVM(plist[i])
-				if err != nil {
-					log.Println("Error deleting node!")
-					log.Fatal(err)
-				}
-			}
-		}
-
-	}
+    adjustSize(&didTransactions, &list)
 
 	// Get current version of the list if we did something to it
 	if didTransactions {
@@ -155,12 +85,108 @@ func main() {
 		}
 		log.Printf("The telescope consists of %d nodes \n", len(list))
 	} else if !status {
-		log.Println("Nothing changes performed, quitting.")
+		log.Println("No changes performed, quitting.")
 	}
 
 	if !ninteractive {
 		prettyPrint(&list)
 	}
+}
+
+func initProviders() {
+	// Create provider clients
+	docl, err := cloudproviders.NewDigOceanClient(cloudproviders.GodoConfig{
+		StorageConfig: cfg.Storage,
+		GodoSpecifics: cfg.DigOcean,
+		CommonConfig:  cfg.Common,
+	})
+
+	if err != nil {
+		log.Println("Error creating provider!")
+		log.Fatal(err)
+	}
+
+	cproviders = append(cproviders, docl)
+
+	mocl, err := cloudproviders.NewMockClient(cloudproviders.MockConfig{
+		StorageConfig: cfg.Storage,
+		MockSpecifics: cfg.Mock,
+		CommonConfig:  cfg.Common,
+	})
+
+	if err != nil {
+		log.Println("Error creating Mock Provider!")
+		log.Fatal(err)
+	}
+
+	cproviders = append(cproviders, mocl)
+
+}
+
+func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescriptor) {
+	// What do we have to do?
+	currRegs := calcCurrRegions(list)
+
+	for _, prov := range cproviders {
+		provName := prov.Info().Name
+		desiredRegs := calcRegions(prov.Info().Regions, prov.Info().Diameter)
+
+		if len((*list)[provName]) < prov.Info().Diameter {
+
+			log.Printf("To few nodes for requested diameter for provider: %s. Creating new nodes! \n", provName)
+			*didTransactions = true
+			var toCreate int = (prov.Info().Diameter - len((*list)[provName]))
+			regionsStack := calcRegionStack(currRegs[provName], desiredRegs)
+
+			for i := 0; i < toCreate; i++ {
+				num := findLowestNum(list)
+				reg := popSlice(&regionsStack)
+				vm, err := prov.CreateVM(cloudproviders.VMDescriptor{
+					Num:    num,
+					Region: reg,
+				})
+				if err != nil {
+					log.Printf("Could not create VM for Provider %s in region %s \n", provName, reg)
+					log.Fatal(err)
+				}
+				(*list)[provName] = append((*list)[provName], vm)
+				log.Printf("Created new node (%d) on %s with name: %s \n", vm.Num, provName, vm.Name)
+			}
+		}
+
+		if len((*list)[provName]) > prov.Info().Diameter {
+			log.Printf("The current %s telescope is too big! Deleting oldest nodes!\n", provName)
+			*didTransactions = true
+			plist := (*list)[provName]
+			sort.Slice(plist, func(i, j int) bool {
+				return plist[i].Created.Before(plist[j].Created)
+			})
+
+			var toDelete int = (len((*list)[provName]) - prov.Info().Diameter)
+			for i := 0; i < toDelete; i++ {
+				log.Println("I will delete node: ", plist[i].Name)
+				err := plist[i].Provider.DestroyVM(plist[i])
+				if err != nil {
+					log.Println("Error deleting node!")
+					log.Fatal(err)
+				}
+			}
+		}
+
+	}
+}
+
+func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor) {
+    for _, provider := range *list {
+        for _, vm := range provider {
+            if time.Now().Sub(vm.Created).Minutes() > float64(cfg.Common.Lifetime) {
+                println("we have to delete the vm: ", vm.Name)
+            } else {
+                println("vm ist still to young: ", vm.Name)
+            }
+        }
+    }
+
 }
 
 func popSlice(arr *[]string) string {

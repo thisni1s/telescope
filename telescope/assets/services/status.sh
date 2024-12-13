@@ -7,8 +7,9 @@ SERVICES=("ssh.service" "ssh.socket" "webhook.service" "webhook.socket" "tcpdump
 utime=$(uptime | jc --uptime)
 name=$(cat /etc/hostname)
 ip4=$( dig +short myip.opendns.com @resolver1.opendns.com)
+td=$(cat /root/config/teardownState.txt)
 
-status_json="{\"hostname\": \"$name\", \"uptime\": $utime, \"ipv4\": \"$ip4\", "
+status_json="{\"hostname\": \"$name\", \"uptime\": $utime, \"ipv4\": \"$ip4\",  \"teardown\": \"$td\", "
 
 # Loop through each service and get its status
 for service in "${SERVICES[@]}"; do

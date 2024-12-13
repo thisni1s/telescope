@@ -2,6 +2,7 @@ diameter: 0
 
 common:
   webhookPw: verysecure
+  lifetime: 5
 
 storage:
   storageLocation : https://storage.server.eu
