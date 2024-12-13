@@ -6,6 +6,8 @@ echo $2 > /root/config/storageLoc.txt
 echo $3 > /root/config/storageAccKey.txt
 echo $4 > /root/config/storageSecKey.txt
 echo $5 > /root/config/webhookPw.txt
+echo $6 > /root/config/provider.txt
+echo $7 > /root/config/region.txt
 echo "available" > /root/config/teardownState.txt
 openssl req -x509 -newkey ed25519 -keyout /root/config/key.key -outform PEM -out /root/config/cert.pem -days 365 -nodes -subj "/C=DE/ST=NW/L=Muenster/O=Univeristy of Muenster/OU=NetSec Group/CN=$(cat /etc/hostname)"
 
@@ -64,6 +66,16 @@ bucket=$(cat /root/config/bucket.txt)
 (crontab -l ; echo '0 */12 * * * sh /var/scripts/upload.sh') | crontab -
 
 mc alias set tupload $(cat /root/config/storageLoc.txt) $(cat /root/config/storageAccKey.txt) $(cat /root/config/storageSecKey.txt)
+
+name=$(cat /etc/hostname)
+ip4=$(dig +short myip.opendns.com @resolver1.opendns.com)
+otime=$(date --iso-8601=seconds)
+os=$(hostnamectl | grep Operating | cut -d ':' --fields 2 | tr -d ' ')
+
+echo "{\"hostname\": \"$name\", \"provider\": $6, \"ipv4\": \"$ip4\", \"creation\": \"$otime\", \"os\": \"$os\", \"region\": \"$7\"}" > /root/config/descriptor.txt
+echo $otime > /root/config/otime.txt
+
+mc cp /root/config/descriptor.txt tupload/$(cat /root/config/bucket.txt)/$ip4
 
 systemctl daemon-reload
 systemctl restart ssh.socket
