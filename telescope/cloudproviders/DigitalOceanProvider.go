@@ -95,7 +95,6 @@ func createDroplet(c *doClient, desc VMDescriptor) (*godo.Droplet, error) {
 	for _, key := range c.config.SSHKeys {
 		keys = append(keys, godo.DropletCreateSSHKey{ID: key})
 	}
-    println("creating vm in region: ", desc.Region)
 	scr := fmt.Sprintf(`#cloud-config
 packages:
   - curl

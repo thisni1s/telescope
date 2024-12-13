@@ -6,7 +6,7 @@ SERVICES=("ssh.service" "ssh.socket" "webhook.service" "webhook.socket" "tcpdump
 
 utime=$(uptime | jc --uptime)
 name=$(cat /etc/hostname)
-ip4=$( dig +short myip.opendns.com @resolver1.opendns.com)
+ip4=$(cat /root/config/ip4.txt)
 td=$(cat /root/config/teardownState.txt)
 otime=$(cat /root/config/otime.txt)
 provider=$(cat /root/config/provider.txt)

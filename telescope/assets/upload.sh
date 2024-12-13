@@ -4,8 +4,7 @@ systemctl stop tcpdumpd
 # Directory containing .pcap files
 directory="/var/log/"
 bucket=$(cat /root/config/bucket.txt)
-ip=$( dig +short myip.opendns.com @resolver1.opendns.com | sed -r 's/\./-/g' )
-
+ip=$(cat /root/config/ip4.txt | sed -r 's/\./-/g' )
 
 # Check if the directory exists
 if [ ! -d "$directory" ]; then
