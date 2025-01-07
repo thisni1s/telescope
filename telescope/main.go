@@ -253,12 +253,12 @@ func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor) {
 				} else if state.Teardown == "finished" {
 					vm.Provider.DestroyVM(vm)
 				}
-                deletedNodeIDs = append(deletedNodeIDs, vm.ID)
+				deletedNodeIDs = append(deletedNodeIDs, vm.ID)
 			}
 		}
 	}
-    
-    // Modifying the list to ensure that new nodes are created imidiately and not wait until the next run
+
+	// Modifying the list to ensure that new nodes are created immediately and not wait until the next run
 	for indx, provider := range *list {
 		newPList := []cloudproviders.VMDescriptor{}
 		for _, vm := range provider {
@@ -283,8 +283,7 @@ func deleteOrder(vm cloudproviders.VMDescriptor, waitTimeS int) {
 	state, err := getVMStatus(&vm)
 	if err != nil {
 		log.Println("Cannot get Status of node: ", vm.Name)
-	}
-	if state.Teardown == "finished" {
+	} else if state.Teardown == "finished" {
 		log.Printf("Teardown for node %s finished, deleting now.\n", vm.Name)
 		vm.Provider.DestroyVM(vm)
 		return
@@ -296,8 +295,7 @@ func deleteOrder(vm cloudproviders.VMDescriptor, waitTimeS int) {
 		state, err := getVMStatus(&vm)
 		if err != nil {
 			log.Println("Cannot get Status of node: ", vm.Name)
-		}
-		if state.Teardown == "finished" {
+		} else if state.Teardown == "finished" {
 			log.Printf("Teardown for node %s finished after %d retries, deleting now.\n", vm.Name, i)
 			vm.Provider.DestroyVM(vm)
 			return
