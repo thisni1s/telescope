@@ -25,6 +25,16 @@ var client *http.Client
 var cproviders []cloudproviders.CloudProvider
 
 func main() {
+	// Parse command-line arguments
+	configFilePath := flag.String("config", "", "Path to the YAML configuration file")
+	flag.Parse()
+
+	// Check if the file path was provided
+	if *configFilePath == "" {
+		*configFilePath = "config.yml"
+		log.Println("No config file provided! Using config.yml!")
+	}
+
 	// Define a binary flag with a default value (false) and a description
 	flag.BoolVar(&ninteractive, "non-interactive", false, "Run in non interactive mode")
 	flag.BoolVar(&status, "status", false, "Display only the telescope status")
@@ -36,8 +46,24 @@ func main() {
 		log.Println("Started telescope manager")
 	}
 
+	telescope(*configFilePath)
+
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			log.Println("Running Telescope loop")
+			telescope(*configFilePath)
+		}
+	}
+
+}
+
+func telescope(cfgPath string) {
 	// Read Config file
-	file, err := os.ReadFile("config.yml")
+	file, err := os.ReadFile(cfgPath)
 	if err != nil {
 		log.Fatal("Could not read config file!")
 	}
@@ -50,6 +76,7 @@ func main() {
 	}
 	client = &http.Client{
 		Transport: tr,
+		Timeout:   10 * time.Second,
 	}
 
 	initProviders()
@@ -108,6 +135,9 @@ func main() {
 }
 
 func initProviders() {
+	// Delete old providers and initialize them again
+	cproviders = []cloudproviders.CloudProvider{}
+
 	// Create provider clients
 	docl, err := cloudproviders.NewDigOceanClient(cloudproviders.GodoConfig{
 		StorageConfig: cfg.Storage,
@@ -186,38 +216,98 @@ func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescr
 				}
 			}
 		}
-
 	}
 }
 
 func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor) {
+	if cfg.Common.Lifetime == -1 {
+		log.Println("No lifetime configured, keeping all nodes and adjusting diameter only!")
+		return
+	}
+
+	deletedNodeIDs := []string{}
+
 	for _, provider := range *list {
 		for _, vm := range provider {
 			if time.Now().Sub(vm.Created).Minutes() > float64(cfg.Common.Lifetime) {
-				println("we have to delete the vm: ", vm.Name)
+				log.Printf("Node %s is too old, tearing down and ordering deletion!\n", vm.Name)
 				//Step one teardown
 				state, err := getVMStatus(&vm)
 				if err != nil {
-					log.Println("Cannot get Status of VM: ", vm.Name)
+					log.Println("Cannot get Status of node: ", vm.Name)
+					if vm.Provider.Info().Name == "MockClient" {
+						vm.Provider.DestroyVM(vm)
+					}
 					continue
 				}
 				if state.Teardown == "available" {
 					_, err := teardownVM(&vm)
 					if err != nil {
-						log.Println("Error tearing down VM", vm.Name)
+						log.Println("Error tearing down node ", vm.Name)
 						log.Println(err)
 					}
+					go deleteOrder(vm, 10)
+					// Other two cases should not be necessary but who knows
 				} else if state.Teardown == "started" {
 					continue
 				} else if state.Teardown == "finished" {
 					vm.Provider.DestroyVM(vm)
 				}
-
-			} else {
-				println("vm ist still to young: ", vm.Name)
+                deletedNodeIDs = append(deletedNodeIDs, vm.ID)
 			}
 		}
 	}
+    
+    // Modifying the list to ensure that new nodes are created imidiately and not wait until the next run
+	for indx, provider := range *list {
+		newPList := []cloudproviders.VMDescriptor{}
+		for _, vm := range provider {
+			deleted := false
+			for _, del := range deletedNodeIDs {
+				if del == vm.ID {
+					deleted = true
+				}
+			}
+			if !deleted {
+				newPList = append(newPList, vm)
+			}
+		}
+		(*list)[indx] = newPList
+	}
+
+}
+
+func deleteOrder(vm cloudproviders.VMDescriptor, waitTimeS int) {
+	// wait some time
+	time.Sleep(time.Duration(waitTimeS) * time.Second)
+	state, err := getVMStatus(&vm)
+	if err != nil {
+		log.Println("Cannot get Status of node: ", vm.Name)
+	}
+	if state.Teardown == "finished" {
+		log.Printf("Teardown for node %s finished, deleting now.\n", vm.Name)
+		vm.Provider.DestroyVM(vm)
+		return
+	}
+
+	// node not finished in wait time. Retrying
+	for i := range 5 {
+		time.Sleep(time.Duration(waitTimeS) * time.Second)
+		state, err := getVMStatus(&vm)
+		if err != nil {
+			log.Println("Cannot get Status of node: ", vm.Name)
+		}
+		if state.Teardown == "finished" {
+			log.Printf("Teardown for node %s finished after %d retries, deleting now.\n", vm.Name, i)
+			vm.Provider.DestroyVM(vm)
+			return
+		}
+		i++
+	}
+
+	// node unresponsive. Deleting by provider
+	log.Printf("Node %s is unresponsive, deleting by calling provider!\n", vm.Name)
+	vm.Provider.DestroyVM(vm)
 
 }
 
