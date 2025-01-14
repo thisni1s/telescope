@@ -209,7 +209,7 @@ func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescr
 			var toDelete int = (len((*list)[provName]) - prov.Info().Diameter)
 			for i := 0; i < toDelete; i++ {
 				log.Println("I will delete node: ", plist[i].Name)
-				err := plist[i].Provider.DestroyVM(plist[i])
+				err := deleteNode(plist[i])
 				if err != nil {
 					log.Println("Error deleting node!")
 					log.Fatal(err)
@@ -217,6 +217,32 @@ func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescr
 			}
 		}
 	}
+}
+
+func deleteNode(vm cloudproviders.VMDescriptor) error {
+	//Step one teardown
+	state, err := getVMStatus(&vm)
+	if err != nil {
+		log.Println("Cannot get Status of node: ", vm.Name)
+		if vm.Provider.Info().Name == "MockClient" {
+			vm.Provider.DestroyVM(vm)
+		}
+		return err
+	}
+	if state.Teardown == "available" {
+		_, err := teardownVM(&vm)
+		if err != nil {
+			log.Println("Error tearing down node ", vm.Name)
+			log.Println(err)
+		}
+		go deleteOrder(vm, 10)
+		// Other two cases should not be necessary but who knows
+	} else if state.Teardown == "started" {
+		return nil
+	} else if state.Teardown == "finished" {
+		vm.Provider.DestroyVM(vm)
+	}
+	return nil
 }
 
 func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor) {
@@ -231,27 +257,10 @@ func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor) {
 		for _, vm := range provider {
 			if time.Now().Sub(vm.Created).Minutes() > float64(cfg.Common.Lifetime) {
 				log.Printf("Node %s is too old, tearing down and ordering deletion!\n", vm.Name)
-				//Step one teardown
-				state, err := getVMStatus(&vm)
+				err := deleteNode(vm)
 				if err != nil {
-					log.Println("Cannot get Status of node: ", vm.Name)
-					if vm.Provider.Info().Name == "MockClient" {
-						vm.Provider.DestroyVM(vm)
-					}
-					continue
-				}
-				if state.Teardown == "available" {
-					_, err := teardownVM(&vm)
-					if err != nil {
-						log.Println("Error tearing down node ", vm.Name)
-						log.Println(err)
-					}
-					go deleteOrder(vm, 10)
-					// Other two cases should not be necessary but who knows
-				} else if state.Teardown == "started" {
-					continue
-				} else if state.Teardown == "finished" {
-					vm.Provider.DestroyVM(vm)
+					log.Println("Error deleting node!")
+					log.Fatal(err)
 				}
 				deletedNodeIDs = append(deletedNodeIDs, vm.ID)
 			}
