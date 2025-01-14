@@ -44,8 +44,7 @@ chmod +x /minio-binaries/mc
 mv /minio-binaries/mc /usr/local/bin/
 
 # Install Webhook Server
-curl -L https://github.com/adnanh/webhook/releases/latest/download/webhook-linux-amd64.tar.gz \
-    -o webhook.tar.gz
+curl -L https://github.com/adnanh/webhook/releases/latest/download/webhook-linux-amd64.tar.gz -o webhook.tar.gz
 tar xf webhook.tar.gz
 mv webhook-linux-amd64/webhook /usr/local/bin/webhook
 rmdir webhook-linux-amd64
@@ -72,7 +71,7 @@ ip4=$(dig +short myip.opendns.com @resolver1.opendns.com)
 otime=$(date --iso-8601=seconds)
 os=$(hostnamectl | grep Operating | cut -d ':' --fields 2 | tr -d ' ')
 
-desc="descriptor-$(($RANDOM % 1000 + 1)).txt"
+desc="descriptor-$(date +"%y%m%d%H%M").txt"
 echo "{\"hostname\": \"$name\", \"provider\": \"$6\", \"ipv4\": \"$ip4\", \"creation\": \"$otime\", \"os\": \"$os\", \"region\": \"$7\"}" > /root/config/$desc
 echo $otime > /root/config/otime.txt
 echo $ip4 > /root/config/ip4.txt
