@@ -48,7 +48,7 @@ func main() {
 
 	telescope(*configFilePath)
 
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(time.Duration(cfg.Common.RoundTime) * time.Minute)
 	defer ticker.Stop()
 
 	for {
@@ -182,19 +182,27 @@ func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescr
 			var toCreate int = (prov.Info().Diameter - len((*list)[provName]))
 			regionsStack := calcRegionStack(currRegs[provName], desiredRegs)
 
+			created := 0
 			for i := 0; i < toCreate; i++ {
-				num := findLowestNum(list)
-				reg := popSlice(&regionsStack)
-				vm, err := prov.CreateVM(cloudproviders.VMDescriptor{
-					Num:    num,
-					Region: reg,
-				})
-				if err != nil {
-					log.Printf("Could not create VM for Provider %s in region %s \n", provName, reg)
-					log.Fatal(err)
+				if created < cfg.Common.NodesPerRound {
+					num := findLowestNum(list)
+					reg := popSlice(&regionsStack)
+					vm, err := prov.CreateVM(cloudproviders.VMDescriptor{
+						Num:    num,
+						Region: reg,
+					})
+					if err != nil {
+						log.Printf("Could not create VM for Provider %s in region %s \n", provName, reg)
+						log.Fatal(err)
+					}
+					(*list)[provName] = append((*list)[provName], vm)
+					created++
+					log.Printf("Created new node (%d) on %s with name: %s \n", vm.Num, provName, vm.Name)
+
+				} else {
+					log.Println("Already created maximum amount of nodes for this round. Waiting...")
+					break
 				}
-				(*list)[provName] = append((*list)[provName], vm)
-				log.Printf("Created new node (%d) on %s with name: %s \n", vm.Num, provName, vm.Name)
 			}
 		}
 

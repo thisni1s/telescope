@@ -31,8 +31,10 @@ type TelescopeConfig struct {
 }
 
 type CommonConfig struct {
-	WebhookPw string `yaml:"webhookPw"`
-	Lifetime  int    `yaml:"lifetime"`
+	WebhookPw     string `yaml:"webhookPw"`
+	Lifetime      int    `yaml:"lifetime"`
+	RoundTime     int    `yaml:"roundTime"`
+	NodesPerRound int    `yaml:"nodesPerRound"`
 }
 
 type VMDescriptor struct {
