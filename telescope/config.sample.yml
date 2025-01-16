@@ -25,3 +25,8 @@ mockProvider:
   regions: ["ms1", "ms2", "ude-e1", "ude-d1", "tum1", "tum2", "kit1", "kit2", "caida2", "caida3", "utwente-1"]
   diameter: 5
 
+influxdb:
+  url: https://example.org
+  token: token
+  org: docs
+  bucket: telescope
