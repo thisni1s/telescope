@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/thisni1s/telescope/cloudproviders"
+	"github.com/thisni1s/telescope/helpers"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,12 +23,15 @@ var ninteractive bool
 var status bool
 var cfg cloudproviders.TelescopeConfig
 var client *http.Client
+var currentDels sync.Map
 
 var cproviders []cloudproviders.CloudProvider
 
 func main() {
 	// Parse command-line arguments
 	configFilePath := flag.String("config", "", "Path to the YAML configuration file")
+	ni := flag.Bool("non-interactive", false, "Run in non interactive mode")
+	st := flag.Bool("status", false, "Display only the telescope status")
 	flag.Parse()
 
 	// Check if the file path was provided
@@ -36,9 +41,8 @@ func main() {
 	}
 
 	// Define a binary flag with a default value (false) and a description
-	flag.BoolVar(&ninteractive, "non-interactive", false, "Run in non interactive mode")
-	flag.BoolVar(&status, "status", false, "Display only the telescope status")
-	flag.Parse()
+	ninteractive = *ni
+	status = *st
 
 	if !ninteractive && !status {
 		fmt.Printf(banner)
@@ -79,6 +83,23 @@ func telescope(cfgPath string) {
 		Timeout:   10 * time.Second,
 	}
 
+	var influxCl *helpers.InfluxClient
+	metrics := false
+	if cfg.InfluxMetrics.Url != "" {
+		log.Println("Setting up metric")
+		influxCl = helpers.NewInfluxClient(cfg.InfluxMetrics)
+		defer influxCl.Close()
+		metrics = true
+	} else {
+		log.Println("No metric server")
+	}
+	mt := helpers.Metric{
+		Diameter:      0,
+		Created:       0,
+		Deleted:       0,
+		ProviderCount: make(map[string]int),
+	}
+
 	initProviders()
 
 	// Print requested telescope size
@@ -108,24 +129,25 @@ func telescope(cfgPath string) {
 		}
 	}
 
-	deleteOldNodes(&list)
-
 	didTransactions := false
-	adjustSize(&didTransactions, &list)
+	deleteOldNodes(&list, &didTransactions, &mt)
+	adjustSize(&didTransactions, &list, &mt)
 
 	// Get current version of the list if we did something to it
+	var nlist []cloudproviders.VMDescriptor
+	for name, prov := range list {
+		nlist = append(nlist, prov...)
+		mt.ProviderCount[name] = len(prov)
+	}
+	mt.Diameter = len(nlist)
+	if metrics {
+		influxCl.WriteData(mt)
+	}
 	if didTransactions {
-		var list []cloudproviders.VMDescriptor
-		for _, prov := range cproviders {
-			plist, err := prov.ListVMs()
-			if err != nil {
-				log.Println("Could not get Droplet list for provider: ", prov.Info().Name)
-				log.Fatal(err)
-			}
-			list = append(list, plist...)
-		}
-		log.Printf("The telescope consists of %d nodes \n", len(list))
+		log.Printf("The telescope consists of %d nodes \n", len(nlist))
+		println(mt.Stringify())
 	} else if !status {
+		influxCl.WriteData(mt)
 		log.Println("No changes performed, quitting.")
 	}
 
@@ -167,7 +189,8 @@ func initProviders() {
 
 }
 
-func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescriptor) {
+func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescriptor, mt *helpers.Metric) {
+	oldDeletions := mt.Deleted
 	// What do we have to do?
 	currRegs := calcCurrRegions(list)
 
@@ -184,7 +207,7 @@ func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescr
 
 			created := 0
 			for i := 0; i < toCreate; i++ {
-				if created < cfg.Common.NodesPerRound {
+				if created < cfg.Common.NodesPerRound+oldDeletions {
 					num := findLowestNum(list)
 					reg := popSlice(&regionsStack)
 					vm, err := prov.CreateVM(cloudproviders.VMDescriptor{
@@ -197,6 +220,7 @@ func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescr
 					}
 					(*list)[provName] = append((*list)[provName], vm)
 					created++
+					mt.Created += 1
 					log.Printf("Created new node (%d) on %s with name: %s \n", vm.Num, provName, vm.Name)
 
 				} else {
@@ -217,43 +241,14 @@ func adjustSize(didTransactions *bool, list *map[string][]cloudproviders.VMDescr
 			var toDelete int = (len((*list)[provName]) - prov.Info().Diameter)
 			for i := 0; i < toDelete; i++ {
 				log.Println("I will delete node: ", plist[i].Name)
-				err := deleteNode(plist[i])
-				if err != nil {
-					log.Println("Error deleting node!")
-					log.Fatal(err)
-				}
+				mt.Deleted += 1
+				go deleteOrder(plist[i], 10)
 			}
 		}
 	}
 }
 
-func deleteNode(vm cloudproviders.VMDescriptor) error {
-	//Step one teardown
-	state, err := getVMStatus(&vm)
-	if err != nil {
-		log.Println("Cannot get Status of node: ", vm.Name)
-		if vm.Provider.Info().Name == "MockClient" {
-			vm.Provider.DestroyVM(vm)
-		}
-		return err
-	}
-	if state.Teardown == "available" {
-		_, err := teardownVM(&vm)
-		if err != nil {
-			log.Println("Error tearing down node ", vm.Name)
-			log.Println(err)
-		}
-		go deleteOrder(vm, 10)
-		// Other two cases should not be necessary but who knows
-	} else if state.Teardown == "started" {
-		return nil
-	} else if state.Teardown == "finished" {
-		vm.Provider.DestroyVM(vm)
-	}
-	return nil
-}
-
-func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor) {
+func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor, didTransactions *bool, mt *helpers.Metric) {
 	if cfg.Common.Lifetime == -1 {
 		log.Println("No lifetime configured, keeping all nodes and adjusting diameter only!")
 		return
@@ -265,14 +260,16 @@ func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor) {
 		for _, vm := range provider {
 			if time.Now().Sub(vm.Created).Minutes() > float64(cfg.Common.Lifetime) {
 				log.Printf("Node %s is too old, tearing down and ordering deletion!\n", vm.Name)
-				err := deleteNode(vm)
-				if err != nil {
-					log.Println("Error deleting node!")
-					log.Fatal(err)
-				}
-				deletedNodeIDs = append(deletedNodeIDs, vm.ID)
+				id := vm.ID
+				mt.Deleted += 1
+				go deleteOrder(vm, 10)
+				deletedNodeIDs = append(deletedNodeIDs, id)
 			}
 		}
+	}
+
+	if len(deletedNodeIDs) > 0 {
+		*didTransactions = true
 	}
 
 	// Modifying the list to ensure that new nodes are created immediately and not wait until the next run
@@ -295,35 +292,49 @@ func deleteOldNodes(list *map[string][]cloudproviders.VMDescriptor) {
 }
 
 func deleteOrder(vm cloudproviders.VMDescriptor, waitTimeS int) {
-	// wait some time
-	time.Sleep(time.Duration(waitTimeS) * time.Second)
-	state, err := getVMStatus(&vm)
-	if err != nil {
-		log.Println("Cannot get Status of node: ", vm.Name)
-	} else if state.Teardown == "finished" {
-		log.Printf("Teardown for node %s finished, deleting now.\n", vm.Name)
-		vm.Provider.DestroyVM(vm)
+	_, loaded := currentDels.LoadOrStore(vm.ID, struct{}{})
+	if loaded {
+		// Another goroutine is working on a deletion of this node
+		log.Printf("Ordered to delete %s but another goroutine is working on it. Returning\n", vm.Name)
 		return
 	}
+	defer currentDels.Delete(vm.ID)
 
-	// node not finished in wait time. Retrying
-	for i := range 5 {
-		time.Sleep(time.Duration(waitTimeS) * time.Second)
+	_, err := teardownVM(&vm)
+	if err != nil {
+		log.Printf("Teardown not working for node: %s (%s) retrying later!\n", vm.Name, vm.Provider.Info().Name)
+		if vm.Provider.Info().Name == "MockClient" {
+			log.Println("Deleting mock node: ", vm.Name)
+			vm.Provider.DestroyVM(vm)
+			return
+		}
+	}
+	// wait some time
+	time.Sleep(time.Duration(waitTimeS) * time.Second)
+
+	for i := range 6 {
 		state, err := getVMStatus(&vm)
 		if err != nil {
 			log.Println("Cannot get Status of node: ", vm.Name)
 		} else if state.Teardown == "finished" {
-			log.Printf("Teardown for node %s finished after %d retries, deleting now.\n", vm.Name, i)
+			log.Printf("Teardown for node %s finished after %d tries, deleting now.\n", vm.Name, i+1)
 			vm.Provider.DestroyVM(vm)
 			return
+		} else if state.Teardown == "available" {
+			log.Println("Teardown not started yet? Tearing down node: ", vm.Name)
+			_, erro := teardownVM(&vm)
+			if erro != nil {
+				log.Println("Teardown not working for node: ", vm.Name)
+			}
+		} else if state.Teardown == "started" {
+			log.Printf("Teardown still running on node: %s Retry: %d", vm.Name, i+1)
 		}
-		i++
+		time.Sleep(time.Duration(waitTimeS) * time.Second)
 	}
 
 	// node unresponsive. Deleting by provider
 	log.Printf("Node %s is unresponsive, deleting by calling provider!\n", vm.Name)
 	vm.Provider.DestroyVM(vm)
-
 }
 
 func getVMStatus(vm *cloudproviders.VMDescriptor) (cloudproviders.VMStatusResponse, error) {

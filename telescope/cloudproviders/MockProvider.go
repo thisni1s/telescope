@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -22,7 +23,7 @@ type MockSpecifics struct {
 type MockConfig struct {
 	MockSpecifics
 	StorageConfig
-    CommonConfig
+	CommonConfig
 }
 
 type mockClient struct {
@@ -30,11 +31,13 @@ type mockClient struct {
 	client string
 	config MockConfig
 	vms    []VMDescriptor
+	mu     *sync.Mutex
 }
 
 func NewMockClient(cfg MockConfig) (*mockClient, error) {
 	initFile(cfg.ImportantFile)
 	client := "Mock Client"
+    var mu sync.Mutex
 	return &mockClient{
 		CloudProviderInfo: CloudProviderInfo{
 			Name:     "MockClient",
@@ -43,10 +46,13 @@ func NewMockClient(cfg MockConfig) (*mockClient, error) {
 		},
 		client: client,
 		config: cfg,
+        mu: &mu,
 	}, nil
 }
 
 func (c *mockClient) CreateVM(desc VMDescriptor) (VMDescriptor, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	desc.Created = time.Now()
 	desc.Provider = c
 	desc.IP = generateRandomIP()
@@ -63,6 +69,8 @@ func (c *mockClient) CreateVM(desc VMDescriptor) (VMDescriptor, error) {
 }
 
 func (c *mockClient) ListVMs() ([]VMDescriptor, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	var list []VMDescriptor
 	list, err := readVMs(c.config.ImportantFile)
 	for i := range list {
@@ -73,6 +81,8 @@ func (c *mockClient) ListVMs() ([]VMDescriptor, error) {
 }
 
 func (c *mockClient) DestroyVM(desc VMDescriptor) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	var list []VMDescriptor
 	list, err := readVMs(c.config.ImportantFile)
 	if err != nil {

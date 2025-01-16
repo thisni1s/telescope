@@ -125,7 +125,8 @@ func dropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, erro
 	// create options. initially, these will be blank
 	opt := &godo.ListOptions{}
 	for {
-		droplets, resp, err := client.Droplets.List(ctx, opt)
+		//droplets, resp, err := client.Droplets.List(ctx, opt)
+        droplets, resp, err := client.Droplets.ListByTag(ctx, "telescope", opt)
 		if err != nil {
 			return nil, err
 		}

@@ -1,6 +1,9 @@
 package cloudproviders
 
-import "time"
+import (
+	"github.com/thisni1s/telescope/helpers"
+	"time"
+)
 
 type CloudProvider interface {
 	CreateVM(VMDescriptor) (VMDescriptor, error)
@@ -23,11 +26,12 @@ type StorageConfig struct {
 }
 
 type TelescopeConfig struct {
-	Diameter int           `yaml:"diameter"`
-	Common   CommonConfig  `yaml:"common"`
-	Storage  StorageConfig `yaml:"storage"`
-	DigOcean GodoSpecifics `yaml:"digitalOcean"`
-	Mock     MockSpecifics `yaml:"mockProvider"`
+	Diameter      int                  `yaml:"diameter"`
+	Common        CommonConfig         `yaml:"common"`
+	Storage       StorageConfig        `yaml:"storage"`
+	DigOcean      GodoSpecifics        `yaml:"digitalOcean"`
+	Mock          MockSpecifics        `yaml:"mockProvider"`
+	InfluxMetrics helpers.InfluxConfig `yaml:"influxdb"`
 }
 
 type CommonConfig struct {
