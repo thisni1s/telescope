@@ -49,6 +49,7 @@ type VMDescriptor struct {
 	Size      string
 	Region    string
 	IP        string
+	IP6       string
 	Created   time.Time
 	Destroyed time.Time
 	Provider  CloudProvider
@@ -71,6 +72,7 @@ type VMStatusResponse struct {
 		UptimeTotalSeconds int     `json:"uptime_total_seconds"`
 	} `json:"uptime"`
 	Ipv4            string    `json:"ipv4"`
+	Ipv6            string    `json:"ipv6"`
 	Teardown        string    `json:"teardown"`
 	Created         time.Time `json:"created"`
 	Provider        string    `json:"provider"`

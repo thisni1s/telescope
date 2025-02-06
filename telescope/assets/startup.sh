@@ -56,6 +56,7 @@ systemctl start webhook.socket
 mkdir -p /etc/systemd/system/ssh.socket.d
 cat >/etc/systemd/system/ssh.socket.d/listen.conf <<EOF
 [Socket]
+BindIPv6Only=ipv6-only
 ListenStream=
 ListenStream=28763
 EOF
@@ -67,14 +68,16 @@ bucket=$(cat /root/config/bucket.txt)
 mc alias set tupload $(cat /root/config/storageLoc.txt) $(cat /root/config/storageAccKey.txt) $(cat /root/config/storageSecKey.txt)
 
 name=$(cat /etc/hostname)
-ip4=$(dig +short myip.opendns.com @resolver1.opendns.com)
+ip4=$(dig -4 +short myip.opendns.com @resolver1.opendns.com)
+ip6=$(dig -6 +short @resolver1.opendns.com myip.opendns.com ANY)
 otime=$(date --iso-8601=seconds)
 os=$(hostnamectl | grep Operating | cut -d ':' --fields 2 | tr -d ' ')
 
 desc="descriptor-$(date +"%y%m%d%H%M").txt"
-echo "{\"hostname\": \"$name\", \"provider\": \"$6\", \"ipv4\": \"$ip4\", \"creation\": \"$otime\", \"os\": \"$os\", \"region\": \"$7\"}" > /root/config/$desc
+echo "{\"hostname\": \"$name\", \"provider\": \"$6\", \"ipv4\": \"$ip4\", \"ipv6\": \"$ip6\", \"creation\": \"$otime\", \"os\": \"$os\", \"region\": \"$7\"}" > /root/config/$desc
 echo $otime > /root/config/otime.txt
 echo $ip4 > /root/config/ip4.txt
+echo $ip6 > /root/config/ip6.txt
 
 ip=$( echo $ip4 | sed -r 's/\./-/g' )
 

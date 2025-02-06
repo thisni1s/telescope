@@ -339,7 +339,7 @@ func deleteOrder(vm cloudproviders.VMDescriptor, waitTimeS int) {
 
 func getVMStatus(vm *cloudproviders.VMDescriptor) (cloudproviders.VMStatusResponse, error) {
 	var response cloudproviders.VMStatusResponse
-	url := fmt.Sprintf("https://%s:51337/hooks/status", vm.IP)
+	url := fmt.Sprintf("https://%s:51337/hooks/status", vm.IP6)
 
 	resp, err := client.Get(url)
 	if err != nil {
@@ -356,7 +356,7 @@ func getVMStatus(vm *cloudproviders.VMDescriptor) (cloudproviders.VMStatusRespon
 }
 
 func teardownVM(vm *cloudproviders.VMDescriptor) (*http.Response, error) {
-	url := fmt.Sprintf("https://%s:51337/hooks/teardown?token=%s", vm.IP, cfg.Common.WebhookPw)
+	url := fmt.Sprintf("https://%s:51337/hooks/teardown?token=%s", vm.IP6, cfg.Common.WebhookPw)
 	resp, err := client.Get(url)
 	return resp, err
 }

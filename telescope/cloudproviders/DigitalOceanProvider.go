@@ -15,7 +15,7 @@ import (
 type GodoConfig struct {
 	StorageConfig
 	GodoSpecifics
-    CommonConfig
+	CommonConfig
 }
 
 type GodoSpecifics struct {
@@ -112,6 +112,7 @@ runcmd:
 		Tags:     []string{"telescope"},
 		SSHKeys:  keys,
 		UserData: scr,
+		IPv6:     true,
 	}
 
 	newDroplet, _, err := c.client.Droplets.Create(c.context, createRequest)
@@ -126,7 +127,7 @@ func dropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, erro
 	opt := &godo.ListOptions{}
 	for {
 		//droplets, resp, err := client.Droplets.List(ctx, opt)
-        droplets, resp, err := client.Droplets.ListByTag(ctx, "telescope", opt)
+		droplets, resp, err := client.Droplets.ListByTag(ctx, "telescope", opt)
 		if err != nil {
 			return nil, err
 		}
@@ -151,8 +152,14 @@ func dropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, erro
 	return list, nil
 }
 
-func safeIP(drop *godo.Droplet) string {
-	ip, err := drop.PublicIPv4()
+func safeIP(drop *godo.Droplet, ip6 bool) string {
+	var ip string
+	var err error
+	if ip6 {
+		ip, err = drop.PublicIPv6()
+	} else {
+		ip, err = drop.PublicIPv4()
+	}
 	if err != nil {
 		return ""
 	} else {
@@ -167,7 +174,8 @@ func dropToDesc(drop *godo.Droplet) VMDescriptor {
 		OS:      drop.Image.Name,
 		Size:    drop.Size.Slug,
 		Region:  drop.Region.Name,
-		IP:      safeIP(drop),
+		IP:      safeIP(drop, false),
+		IP6:     safeIP(drop, true),
 		Created: helpers.GetTimefromStr(drop.Created),
 	}
 }
