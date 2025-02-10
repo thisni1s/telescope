@@ -1,9 +1,10 @@
-#!/bin/sh
-systemctl stop tcpdumpd
+#!/bin/bash
 
 # Directory containing .pcap files
-directory="/var/log/"
+directory="/var/spool/corsaro"
 bucket=$(cat /root/config/bucket.txt)
+provider=$(cat /root/config/provider.txt)
+region=$(cat /root/config/region.txt)
 ip=$(cat /root/config/ip4.txt | sed -r 's/\./-/g' )
 
 # Check if the directory exists
@@ -13,7 +14,16 @@ if [ ! -d "$directory" ]; then
 fi
 
 cd $directory
-mc cp --recursive tcpdumpd/ tupload/$bucket/$ip
-rm tcpdumpd/*
+for file in *.done; do
+    timestamp=$(echo "$file" | cut -d '.' -f 1)
+    year=$(date -u -d @"$timestamp" +"%Y")
+    month=$(date -u -d @"$timestamp" +"%m")
+    day=$(date -u -d @"$timestamp" +"%d")
+    hour=$(date -u -d @"$timestamp" +"%H")
 
-systemctl start tcpdumpd
+    target="tupload/${bucket}/provider=${provider}/region=${region}/ip=${ip}/year=${year}/month=${month}/day=${day}/hour=${hour}"
+
+    if mc cp "${file%.*}" "$target/"; then
+        rm "$file" "${file%.*}"
+    fi
+done

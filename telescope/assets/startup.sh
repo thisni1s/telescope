@@ -14,18 +14,21 @@ openssl req -x509 -newkey ed25519 -keyout /root/config/key.key -outform PEM -out
 export DEBIAN_FRONTEND=noninteractive
 apt update -y
 apt upgrade -y
-apt install tcpdump jc -y # already installed
 
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/tcpdumpd.service -P /usr/lib/systemd/system
+# Install Corsaro
+curl https://pkg.caida.org/os/ubuntu/bootstrap.sh | bash
+sudo apt install -y corsaro
+wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/corsaro.conf -O /etc/corsaro.conf
+wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/corsaro.service -P /usr/lib/systemd/system
+iface=$(ip route show default | awk '{print $5}')
+sed -i "s/##IFACE##/$iface/g" /etc/corsaro.conf
+systemctl enable corsaro
+
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.service -P /usr/lib/systemd/system
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.socket -P /usr/lib/systemd/system
 
-iface=$(ip route show default | awk '{print $5}')
-sed -i "s/##IFACE##/$iface/g" /usr/lib/systemd/system/tcpdumpd.service
-systemctl enable tcpdumpd
-
 mkdir -p /var/scripts
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/upload.sh -P /var/scripts/
+wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/upload.sh -O /var/scripts/upload.sh
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/teardown.sh -P /var/scripts/
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/ping.sh -P /var/scripts/
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/restart.sh -P /var/scripts/
@@ -56,19 +59,18 @@ systemctl start webhook.socket
 mkdir -p /etc/systemd/system/ssh.socket.d
 cat >/etc/systemd/system/ssh.socket.d/listen.conf <<EOF
 [Socket]
-BindIPv6Only=ipv6-only
 ListenStream=
 ListenStream=28763
 EOF
 
 bucket=$(cat /root/config/bucket.txt)
 
-(crontab -l ; echo '0 */12 * * * sh /var/scripts/upload.sh') | crontab -
+(crontab -l ; echo '0 */12 * * * /var/scripts/upload.sh') | crontab -
 
 mc alias set tupload $(cat /root/config/storageLoc.txt) $(cat /root/config/storageAccKey.txt) $(cat /root/config/storageSecKey.txt)
 
 name=$(cat /etc/hostname)
-ip4=$(dig -4 +short myip.opendns.com @resolver1.opendns.com)
+ip4=$(dig +short myip.opendns.com @resolver1.opendns.com)
 ip6=$(dig -6 +short @resolver1.opendns.com myip.opendns.com ANY)
 otime=$(date --iso-8601=seconds)
 os=$(hostnamectl | grep Operating | cut -d ':' --fields 2 | tr -d ' ')
@@ -85,4 +87,4 @@ mc cp /root/config/$desc tupload/$(cat /root/config/bucket.txt)/$ip/$desc
 
 systemctl daemon-reload
 systemctl restart ssh.socket
-systemctl start tcpdumpd
+systemctl enable --now corsaro

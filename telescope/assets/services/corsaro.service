@@ -1,0 +1,11 @@
+[Unit]
+After=network.target
+
+[Service]
+Restart=always
+ExecStartPre=/bin/mkdir -p /var/spool/corsaro
+ExecStartPre=/bin/mkdir -p /var/run/corsaro
+ExecStart=/usr/bin/corsarowdcap -c /etc/corsaro.conf -l terminal
+
+[Install]
+WantedBy=multi-user.target
