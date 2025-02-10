@@ -59,6 +59,7 @@ systemctl start webhook.socket
 mkdir -p /etc/systemd/system/ssh.socket.d
 cat >/etc/systemd/system/ssh.socket.d/listen.conf <<EOF
 [Socket]
+BindIPv6Only=ipv6-only
 ListenStream=
 ListenStream=28763
 EOF
