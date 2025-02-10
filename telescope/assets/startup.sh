@@ -71,7 +71,7 @@ bucket=$(cat /root/config/bucket.txt)
 mc alias set tupload $(cat /root/config/storageLoc.txt) $(cat /root/config/storageAccKey.txt) $(cat /root/config/storageSecKey.txt)
 
 name=$(cat /etc/hostname)
-ip4=$(dig +short myip.opendns.com @resolver1.opendns.com)
+ip4=$(dig -4 +short myip.opendns.com @resolver1.opendns.com)
 ip6=$(dig -6 +short @resolver1.opendns.com myip.opendns.com ANY)
 otime=$(date --iso-8601=seconds)
 os=$(hostnamectl | grep Operating | cut -d ':' --fields 2 | tr -d ' ')
