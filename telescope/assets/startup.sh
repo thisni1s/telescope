@@ -66,7 +66,7 @@ EOF
 
 bucket=$(cat /root/config/bucket.txt)
 
-(crontab -l ; echo '0 */12 * * * /var/scripts/upload.sh') | crontab -
+(crontab -l ; echo '*/10 * * * * /var/scripts/upload.sh') | crontab -
 
 mc alias set tupload $(cat /root/config/storageLoc.txt) $(cat /root/config/storageAccKey.txt) $(cat /root/config/storageSecKey.txt)
 
