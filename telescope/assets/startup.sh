@@ -93,7 +93,7 @@ echo $ip6 > /root/config/ip6.txt
 
 ip=$( echo $ip4 | sed -r 's/\./-/g' )
 
-mc cp /root/config/$desc tupload/$(cat /root/config/bucket.txt)/$ip/$desc
+mc cp /root/config/$desc tupload/$(cat /root/config/bucket.txt)/descriptors/$ip/$desc
 
 echo "nameserver 2001:4860:4860::8888" > /etc/resolv.conf
 
