@@ -86,6 +86,9 @@ ip=$( echo $ip4 | sed -r 's/\./-/g' )
 
 mc cp /root/config/$desc tupload/$(cat /root/config/bucket.txt)/$ip/$desc
 
+# Drop outbound v4 traffic, we want to be completely silent.
+sudo iptables -A OUTPUT -o "$iface" -j DROP
+
 systemctl daemon-reload
 systemctl restart ssh.socket
 systemctl enable --now corsaro
