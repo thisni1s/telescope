@@ -72,8 +72,17 @@ mc alias set tupload $(cat /root/config/storageLoc.txt) $(cat /root/config/stora
 
 name=$(cat /etc/hostname)
 ip4=$(dig -4 +short myip.opendns.com @resolver1.opendns.com)
+echo "Digging ipv4 address"
+dig -4 myip.opendns.com @resolver1.opendns.com
+
 ip6=$(dig -6 +short @resolver1.opendns.com myip.opendns.com ANY)
+echo "Digging ipv6 address"
+dig -6 +short @resolver1.opendns.com myip.opendns.com ANY
+
 otime=$(date --iso-8601=seconds)
+echo "We are operational, time:"
+date --iso-8601=seconds
+
 os=$(hostnamectl | grep Operating | cut -d ':' --fields 2 | tr -d ' ')
 
 desc="descriptor-$(date +"%y%m%d%H%M").txt"
@@ -86,10 +95,11 @@ ip=$( echo $ip4 | sed -r 's/\./-/g' )
 
 mc cp /root/config/$desc tupload/$(cat /root/config/bucket.txt)/$ip/$desc
 
+echo "nameserver 2001:4860:4860::8888" > /etc/resolv.conf
+
 # Drop outbound v4 traffic, we want to be completely silent.
 sudo iptables -A OUTPUT -o "$iface" -j DROP
 
 systemctl daemon-reload
 systemctl restart ssh.socket
 systemctl enable --now corsaro
-systemctl start corsaro
