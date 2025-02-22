@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Directory containing .pcap files
-directory="/var/spool/corsaro"
+directory="/var/spool/gotrace"
 bucket=$(cat /root/config/bucket.txt)
 provider=$(cat /root/config/provider.txt)
 region=$(cat /root/config/region.txt)

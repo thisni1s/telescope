@@ -13,22 +13,34 @@ openssl req -x509 -newkey ed25519 -keyout /root/config/key.key -outform PEM -out
 
 export DEBIAN_FRONTEND=noninteractive
 apt update -y
+apt install tcpdump curl unzip -y
 #apt upgrade -y
 
 # Install Corsaro
-curl https://pkg.caida.org/os/ubuntu/bootstrap.sh | bash
-sudo apt install -y corsaro
-wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/corsaro.conf -O /etc/corsaro.conf
-wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/corsaro.service -P /usr/lib/systemd/system
+#curl https://pkg.caida.org/os/ubuntu/bootstrap.sh | bash
+#sudo apt install -y corsaro
+#wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/corsaro.conf -O /etc/corsaro.conf
+#wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/corsaro.service -P /usr/lib/systemd/system
+
+curl -sSL https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/jobs/artifacts/main/download?job=build -o gotrace.zip
+unzip gotrace.zip
+chmod +x gotrace
+mv gotrace /usr/local/bin
+
+mkdir -p /etc/gotrace
+mkdir -p /var/spool/gotrace
+wget https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/raw/main/gotrace.service -O /usr/lib/systemd/system
+wget https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/raw/main/config.yaml -O /etc/gotrace/config.yaml
+
 iface=$(ip route show default | awk '{print $5}')
-sed -i "s/##IFACE##/$iface/g" /etc/corsaro.conf
-systemctl enable corsaro
+sed -i "s/##IFACE##/$iface/g" /etc/gotrace/config.yaml
+systemctl enable gotrace
 
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.service -P /usr/lib/systemd/system
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.socket -P /usr/lib/systemd/system
 
 mkdir -p /var/scripts
-wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/upload.sh -O /var/scripts/upload.sh
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/upload.sh -O /var/scripts/upload.sh
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/teardown.sh -P /var/scripts/
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/ping.sh -P /var/scripts/
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/restart.sh -P /var/scripts/
@@ -108,4 +120,4 @@ sudo iptables -A OUTPUT -o "$iface" -j DROP
 
 systemctl daemon-reload
 systemctl restart ssh.socket
-systemctl enable --now corsaro
+systemctl start gotrace
