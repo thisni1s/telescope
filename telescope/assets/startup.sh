@@ -29,7 +29,7 @@ mv gotrace /usr/local/bin
 
 mkdir -p /etc/gotrace
 mkdir -p /var/spool/gotrace
-wget https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/raw/main/gotrace.service -O /usr/lib/systemd/system
+wget https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/raw/main/gotrace.service -P /usr/lib/systemd/system
 wget https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/raw/main/config.yaml -O /etc/gotrace/config.yaml
 
 iface=$(ip route show default | awk '{print $5}')
