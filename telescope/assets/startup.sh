@@ -29,26 +29,26 @@ mv gotrace /usr/local/bin
 
 mkdir -p /etc/gotrace
 mkdir -p /var/spool/gotrace
-wget https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/raw/main/gotrace.service -P /usr/lib/systemd/system
+wget https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/raw/main/gotrace.service -O /usr/lib/systemd/system/gotrace.service
 wget https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/raw/main/config.yaml -O /etc/gotrace/config.yaml
 
 iface=$(ip route show default | awk '{print $5}')
 sed -i "s/##IFACE##/$iface/g" /etc/gotrace/config.yaml
 systemctl enable gotrace
 
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.service -P /usr/lib/systemd/system
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.socket -P /usr/lib/systemd/system
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.service -O /usr/lib/systemd/system/webhook.service
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.socket -O /usr/lib/systemd/system/webhook.socket
 
 mkdir -p /var/scripts
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/upload.sh -O /var/scripts/upload.sh
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/teardown.sh -P /var/scripts/
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/ping.sh -P /var/scripts/
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/restart.sh -P /var/scripts/
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/status.sh -P /var/scripts/
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/redeploy.sh -P /var/scripts/
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/teardown.sh -O /var/scripts/teardown.sh
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/ping.sh -O /var/scripts/ping.sh
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/restart.sh -O /var/scripts/restart.sh
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/status.sh -O /var/scripts/status.sh
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/redeploy.sh -O /var/scripts/redeploy.sh
 chmod +x /var/scripts/*
 
-wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.json -P /etc/
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.json -O /etc/webhook.json
 sed -i "s/##WHPW##/$5/g" /etc/webhook.json
 
 #Install Minio Client
