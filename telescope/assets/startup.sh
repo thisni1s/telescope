@@ -23,7 +23,7 @@ apt install tcpdump curl unzip yes -y
 #wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/corsaro.service -P /usr/lib/systemd/system
 
 curl -sSL https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/jobs/artifacts/main/download?job=build -o gotrace.zip
-yes unzip gotrace.zip
+unzip -o gotrace.zip
 chmod +x gotrace
 mv gotrace /usr/local/bin
 
