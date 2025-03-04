@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define an array of systemd services to check
-SERVICES=("ssh.service" "ssh.socket" "webhook.service" "webhook.socket" "tcpdumpd.service" "corsaro.service")
+SERVICES=("ssh.service" "ssh.socket" "webhook.service" "webhook.socket" "tcpdumpd.service" "corsaro.service" "gotrace.service")
 
 
 #utime=$(uptime | jc --uptime) # does not work for some obscure reason
