@@ -13,7 +13,7 @@ openssl req -x509 -newkey ed25519 -keyout /root/config/key.key -outform PEM -out
 
 export DEBIAN_FRONTEND=noninteractive
 apt update -y
-apt install tcpdump curl unzip -y
+apt install tcpdump curl unzip yes -y
 #apt upgrade -y
 
 # Install Corsaro
@@ -23,7 +23,7 @@ apt install tcpdump curl unzip -y
 #wget https://raw.githubusercontent.com/thisni1s/script-store/refs/heads/main/telescope/corsaro.service -P /usr/lib/systemd/system
 
 curl -sSL https://zivgitlab.uni-muenster.de/nkempen/gotrace/-/jobs/artifacts/main/download?job=build -o gotrace.zip
-unzip gotrace.zip
+yes unzip gotrace.zip
 chmod +x gotrace
 mv gotrace /usr/local/bin
 
