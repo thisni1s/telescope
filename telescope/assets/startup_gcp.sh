@@ -114,12 +114,11 @@ rm /etc/resolv.conf
 echo "nameserver 2001:4860:4860::8888" > /etc/resolv.conf
 
 # ACCEPT rules to allow GCP healthchecks
-sudo iptables -A OUTPUT -o "$iface" -d 35.191.0.0/16 -j ACCEPT
-sudo iptables -A OUTPUT -o "$iface" -d 209.85.152.0/22 -j ACCEPT
-sudo iptables -A OUTPUT -o "$iface" -d 209.85.204.0/22 -j ACCEPT
-
-# Drop outbound v4 traffic, we want to be completely silent.
-sudo iptables -A OUTPUT -o "$iface" -j DROP
+sudo iptables -A INPUT -i "$iface" -s 35.191.0.0/16 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -A INPUT -i "$iface" -s 209.85.152.0/22 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -A INPUT -i "$iface" -s 209.85.204.0/22 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+# Drop inbound v4 traffic, we want to be completely silent.
+sudo iptables -A INPUT -i "$iface" -j DROP
 
 systemctl daemon-reload
 systemctl restart ssh.socket
