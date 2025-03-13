@@ -14,8 +14,8 @@ if [ ! -d "$directory" ]; then
 fi
 
 cd $directory
-for file in *.done; do
-    timestamp=$(echo "$file" | cut -d '.' -f 1)
+for file in *.pcap.gz; do
+    timestamp=$(echo "$file" | cut -d '.' -f 1 | cut -d '-' -f 2)
     year=$(date -u -d @"$timestamp" +"%Y")
     month=$(date -u -d @"$timestamp" +"%m")
     day=$(date -u -d @"$timestamp" +"%d")
@@ -23,7 +23,8 @@ for file in *.done; do
 
     target="tupload/${bucket}/provider=${provider}/region=${region}/ip=${ip}/year=${year}/month=${month}/day=${day}/hour=${hour}"
 
-    if mc cp "${file%.*}" "$target/"; then
-        rm "$file" "${file%.*}"
+    if mc cp "${file}" "$target/"; then
+        rm "$file" 
     fi
 done
+
