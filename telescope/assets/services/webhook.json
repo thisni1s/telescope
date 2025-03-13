@@ -18,7 +18,7 @@
     "id": "restart",
     "execute-command": "/var/scripts/restart.sh",
     "trigger-rule":{"match":{"type":"value","value":"##WHPW##","parameter":{"source":"url","name":"token"}}}
-  }
+  },
   {
     "id": "redeploy",
     "execute-command": "/var/scripts/redeploy.sh",
