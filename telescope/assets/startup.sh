@@ -8,6 +8,7 @@ echo $4 > /root/config/storageSecKey.txt
 echo $5 > /root/config/webhookPw.txt
 echo $6 > /root/config/provider.txt
 echo $7 > /root/config/region.txt
+echo $8 > /root/config/zone.txt
 echo "available" > /root/config/teardownState.txt
 openssl req -x509 -newkey ed25519 -keyout /root/config/key.key -outform PEM -out /root/config/cert.pem -days 365 -nodes -subj "/C=DE/ST=NW/L=Muenster/O=Univeristy of Muenster/OU=NetSec Group/CN=$(cat /etc/hostname)"
 
@@ -72,7 +73,6 @@ systemctl start webhook.socket
 mkdir -p /etc/systemd/system/ssh.socket.d
 cat >/etc/systemd/system/ssh.socket.d/listen.conf <<EOF
 [Socket]
-BindIPv6Only=ipv6-only
 ListenStream=
 ListenStream=28763
 EOF
@@ -114,9 +114,15 @@ systemctl disable systemd-resolved
 rm /etc/resolv.conf
 echo "nameserver 2001:4860:4860::8888" > /etc/resolv.conf
 
+if [ "$7" = "us-central1" ]; then
+  # ACCEPT rules to allow GCP healthchecks
+  sudo iptables -A INPUT -i "$iface" -s 35.191.0.0/16 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+  sudo iptables -A INPUT -i "$iface" -s 209.85.152.0/22 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+  sudo iptables -A INPUT -i "$iface" -s 209.85.204.0/22 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+fi
 
-# Drop outbound v4 traffic, we want to be completely silent.
-sudo iptables -A OUTPUT -o "$iface" -j DROP
+# Drop inbound v4 traffic, we want to be completely silent.
+sudo iptables -A INPUT -i "$iface" -j DROP
 
 systemctl daemon-reload
 systemctl restart ssh.socket
