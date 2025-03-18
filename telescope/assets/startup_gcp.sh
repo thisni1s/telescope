@@ -114,7 +114,7 @@ systemctl disable systemd-resolved
 rm /etc/resolv.conf
 echo "nameserver 2001:4860:4860::8888" > /etc/resolv.conf
 
-if [ "$7" = "us-central-1" ]; then
+if [ "$7" = "us-central1" ]; then
   # ACCEPT rules to allow GCP healthchecks
   sudo iptables -A INPUT -i "$iface" -s 35.191.0.0/16 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
   sudo iptables -A INPUT -i "$iface" -s 209.85.152.0/22 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
