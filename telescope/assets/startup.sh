@@ -72,7 +72,6 @@ systemctl start webhook.socket
 mkdir -p /etc/systemd/system/ssh.socket.d
 cat >/etc/systemd/system/ssh.socket.d/listen.conf <<EOF
 [Socket]
-BindIPv6Only=ipv6-only
 ListenStream=
 ListenStream=28763
 EOF
@@ -114,8 +113,20 @@ systemctl disable systemd-resolved
 rm /etc/resolv.conf
 echo "nameserver 2001:4860:4860::8888" > /etc/resolv.conf
 
+if [ "$7" = "us-central1" ] && [ "$6" = "gcp" ]; then
+  # ACCEPT rules to allow GCP healthchecks
+  # These rules take precedence over the complete DROP rules as they're added earlier
+  sudo iptables -A INPUT -i "$iface" -s 35.191.0.0/16 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+  sudo iptables -A INPUT -i "$iface" -s 209.85.152.0/22 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
+  sudo iptables -A INPUT -i "$iface" -s 209.85.204.0/22 -p tcp --dport 28763 -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT
 
-# Drop outbound v4 traffic, we want to be completely silent.
+  sudo iptables -A OUTPUT -o "$iface" -d 35.191.0.0/16 -p tcp --sport 28763 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+  sudo iptables -A OUTPUT -o "$iface" -d 209.85.152.0/22 -p tcp --sport 28763 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+  sudo iptables -A OUTPUT -o "$iface" -d 209.85.204.0/22 -p tcp --sport 28763 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+fi
+
+# Drop inbound and outbound ipv4 traffic, we want to be completely silent.
+sudo iptables -A INPUT -i "$iface" -j DROP
 sudo iptables -A OUTPUT -o "$iface" -j DROP
 
 systemctl daemon-reload
