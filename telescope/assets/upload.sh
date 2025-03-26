@@ -7,6 +7,18 @@ provider=$(cat /root/config/provider.txt)
 region=$(cat /root/config/region.txt)
 ip=$(cat /root/config/ip4.txt | sed -r 's/\./-/g' )
 
+# Do we need to rewrite the pcaps?
+providers=("aws" "gcp" "azure")
+
+# Check if the file content matches any of the strings in the array
+for prov in "${providers[@]}"; do
+  if [[ "$provider" == "$prov" ]]; then
+    /var/scripts/rewrite.sh
+    break
+  fi
+done
+
+
 # Check if the directory exists
 if [ ! -d "$directory" ]; then
     echo "Directory not found: $directory"
