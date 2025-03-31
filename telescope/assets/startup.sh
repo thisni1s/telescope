@@ -13,7 +13,7 @@ openssl req -x509 -newkey ed25519 -keyout /root/config/key.key -outform PEM -out
 
 export DEBIAN_FRONTEND=noninteractive
 apt update -y
-apt install tcpdump curl unzip -y
+apt install tcpdump curl unzip tcpreplay -y
 #apt upgrade -y
 
 # Install Corsaro
@@ -46,6 +46,7 @@ wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telesc
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/restart.sh -O /var/scripts/restart.sh
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/status.sh -O /var/scripts/status.sh
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/redeploy.sh -O /var/scripts/redeploy.sh
+wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/rewrite.sh -O /var/scripts/rewrite.sh
 chmod +x /var/scripts/*
 
 wget https://raw.githubusercontent.com/thisni1s/telescope/refs/heads/main/telescope/assets/services/webhook.json -O /etc/webhook.json
