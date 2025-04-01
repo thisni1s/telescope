@@ -15,7 +15,7 @@ if [ ! -d "$directory" ]; then
 fi
 
 # Do we need to rewrite the pcaps?
-providers=("aws" "gcp" "azure")
+providers=("aws" "gcp" "azure" "terraform")
 
 # Check if the file content matches any of the strings in the array
 for prov in "${providers[@]}"; do
