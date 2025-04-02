@@ -114,6 +114,11 @@ systemctl disable systemd-resolved
 rm /etc/resolv.conf
 echo "nameserver 2001:4860:4860::8888" > /etc/resolv.conf
 
+if [ "$6" == "vultr" ]; then
+    # Disable ufw on vultr
+    ufw disable
+fi
+
 if [ "$7" = "us-central1" ] && [ "$6" = "gcp" ]; then
   # ACCEPT rules to allow GCP healthchecks
   # These rules take precedence over the complete DROP rules as they're added earlier
